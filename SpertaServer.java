@@ -1,13 +1,15 @@
 import java.io.IOException;
-import java.net.Socket;
-import java.net.ServerSocket;
-import java.io.ObjectOutputStream;
 import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.ServerSocket;
+import java.net.Socket;
 
 public class SpertaServer {
     
     private ServerSocket serverSocket;
     private boolean run = false;
+	private Socket clientSocket;
+
     
     //FALTA
     public static void main(String[] args){
@@ -28,11 +30,12 @@ public class SpertaServer {
 
         while(running){
             try{
-                Socket clientSocket = serverSocket.accept();
                 System.out.println("Nova conexão de: " + clientSocket.getInetAddress().getHostAddress());
 
-                ClientHandler clientHandler = new ClientHandler(clientSocket);
-                clientHandler.start();
+                // ClientHandler clientHandler = new ClientHandler(clientSocket);
+				clientSocket = serverSocket.accept();
+				// ServerThread newServerThread = new ServerThread(clientSocket);
+				// newServerThread.start();
             }catch(IOException e){
                 if(run){
                     System.err.println("Erro na conexão: " + e.getMessage());
@@ -59,8 +62,13 @@ public class SpertaServer {
     //VERRRRRR
 	public void run(){
 			try {
-				ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
-				ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
+				// DataOutputStream out = new
+				// DataOutputStream(clientSocket.getOutputStream());
+				// // ObjectOutputStream outStream = new ObjectOutputStream(serverSocket.getOutputStream());
+				// ObjectInputStream inStream = new ObjectInputStream(clientSocket.getInputStream());
+				ObjectInputStream inStream = new ObjectInputStream(clientSocket.getInputStream());
+				ObjectOutputStream outStream = new ObjectOutputStream(clientSocket.getOutputStream());
+
 
 				String user = null;
 				String passwd = null;
@@ -70,7 +78,8 @@ public class SpertaServer {
 					passwd = (String)inStream.readObject();
 					System.out.println("Thread: depois de receber a password e o user");
 				}catch (ClassNotFoundException e1) {
-					System.err.println(e1.printStackTrace());
+					// System.err.println(e1.printStackTrace());
+					e1.printStackTrace();
 				}
  			
 				//TODO: refazer
@@ -86,10 +95,11 @@ public class SpertaServer {
 				outStream.close();
 				inStream.close();
  			
-				socket.close();
+				serverSocket.close();
 
 			} catch (IOException e) {
-				System.err.println(e.printStackTrace());
+				// System.err.println(e.printStackTrace());
+				e.printStackTrace();
 			}
     }
 

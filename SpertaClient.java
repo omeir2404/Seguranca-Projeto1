@@ -2,6 +2,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.util.Scanner;
 public class SpertaClient {
     
 
@@ -19,9 +20,15 @@ public class SpertaClient {
             ObjectInputStream in = new ObjectInputStream(clientSocket.getInputStream());
             ObjectOutputStream out = new ObjectOutputStream(clientSocket.getOutputStream());
 
-            String userInput = "Nexus";
+            // String userInput = "Nexus";
 
-            String userInput2 = "ECLIPSE";
+            // String userInput2 = "ECLIPSE";
+            Scanner sc = new Scanner(System.in);
+            System.out.println("Enter your Name:");
+            String userInput = sc.nextLine();
+            System.out.println("Enter your Password:");
+            String userInput2 = sc.nextLine();
+
             out.writeObject(userInput);
             out.writeObject(userInput2);
 

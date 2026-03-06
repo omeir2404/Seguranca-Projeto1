@@ -4,7 +4,7 @@ import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-public class SpertaServer {
+public class SpertaServer extends Thread{
     
     private ServerSocket serverSocket;
     private boolean run = false;
@@ -13,16 +13,21 @@ public class SpertaServer {
     
     //FALTA
     public static void main(String[] args){
-
+		int port = 22345;
+		if (args.length > 0) {
+        	port = Integer.parseInt(args[0]);
+    	}
+		SpertaServer server = new SpertaServer();
+    	server.startServer(port);
     }
 
     //Iniciar Servidor
-    public void startServer (){
+    public void startServer (int port){
         System.out.println("0 mais rápido clientes...");
         Boolean running = true;
 
         try {
-            serverSocket = new ServerSocket(23456); // porta do servidor
+            serverSocket = new ServerSocket(port); // porta do servidor
         } catch (IOException e) {
             System.err.println(e.getMessage());
             System.exit(-1);
@@ -30,14 +35,12 @@ public class SpertaServer {
 
         while(running){
             try{
-                System.out.println("Nova conexão de: " + clientSocket.getInetAddress().getHostAddress());
-
-                // ClientHandler clientHandler = new ClientHandler(clientSocket);
 				clientSocket = serverSocket.accept();
-				// ServerThread newServerThread = new ServerThread(clientSocket);
-				// newServerThread.start();
+                System.out.println("Nova conexão de: " + clientSocket.getInetAddress().getHostAddress());
+				ClientHandler clientHandler = new ClientHandler(clientSocket);
+				clientHandler.start();
             }catch(IOException e){
-                if(run){
+                if(running){
                     System.err.println("Erro na conexão: " + e.getMessage());
                 }
             }
@@ -59,154 +62,50 @@ public class SpertaServer {
         }
     }
 
-    //VERRRRRR
-	public void run(){
-			try {
-				// DataOutputStream out = new
-				// DataOutputStream(clientSocket.getOutputStream());
-				// // ObjectOutputStream outStream = new ObjectOutputStream(serverSocket.getOutputStream());
-				// ObjectInputStream inStream = new ObjectInputStream(clientSocket.getInputStream());
-				ObjectInputStream inStream = new ObjectInputStream(clientSocket.getInputStream());
-				ObjectOutputStream outStream = new ObjectOutputStream(clientSocket.getOutputStream());
 
+	class ClientHandler extends Thread{
+    	private Socket socket;
+    	ClientHandler(Socket sock) {
+			this.socket = sock;
+			System.out.println("Thread do server criada para cada cliente.");
+    	}
 
-				String user = null;
-				String passwd = null;
-			
-				try {
-					user = (String)inStream.readObject();
-					passwd = (String)inStream.readObject();
-					System.out.println("Thread: depois de receber a password e o user");
-				}catch (ClassNotFoundException e1) {
-					// System.err.println(e1.printStackTrace());
-					e1.printStackTrace();
-				}
- 			
-				//TODO: refazer
-				//este codigo apenas exemplifica a comunicacao entre o cliente e o servidor
-				//nao faz qualquer tipo de autenticacao
-				if (user.length() != 0){
-					outStream.writeObject(Boolean.TRUE);
-				}
-				else {
-					outStream.writeObject(Boolean.FALSE);
-				}
-
-				outStream.close();
-				inStream.close();
- 			
-				serverSocket.close();
-
-			} catch (IOException e) {
-				// System.err.println(e.printStackTrace());
-				e.printStackTrace();
-			}
-    }
-
-
-
-
-    /*
-    public class ClientHandler extends Thread {
-    private Socket socket;
-    
-    ClientHandler(Socket inSoc) {
-        socket = inSoc;
-        System.out.println("thread do server para cada cliente");
-    }
-    
-    public void run() {
-        // Move o código que está no método run() atual para aqui
-    }
-}
-    
-    */
-
-
-}
-
-
-//Servidor myServer
-/*
-public class myServer{
-
-	public static void main(String[] args) {
-		System.out.println("servidor: main");
-		myServer server = new myServer();
-		server.startServer();
-	}
-
-	public void startServer (){
-		ServerSocket sSoc = null;
-        
-		try {
-			sSoc = new ServerSocket(23456);
-		} catch (IOException e) {
-			System.err.println(e.getMessage());
-			System.exit(-1);
-		}
-         
-		while(true) {
-			try {
-				Socket inSoc = sSoc.accept();
-				ServerThread newServerThread = new ServerThread(inSoc);
-				newServerThread.start();
-		    }
-		    catch (IOException e) {
-		        e.printStackTrace();
-		    }
-		    
-		}
-		//sSoc.close();
-	}
-
-
-	//Threads utilizadas para comunicacao com os clientes
-	class ServerThread extends Thread {
-
-		private Socket socket = null;
-
-		ServerThread(Socket inSoc) {
-			socket = inSoc;
-			System.out.println("thread do server para cada cliente");
-		}
- 
 		public void run(){
-			try {
-				ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
-				ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
-
-				String user = null;
-				String passwd = null;
-			
 				try {
-					user = (String)inStream.readObject();
-					passwd = (String)inStream.readObject();
-					System.out.println("thread: depois de receber a password e o user");
-				}catch (ClassNotFoundException e1) {
-					e1.printStackTrace();
-				}
- 			
-				//TODO: refazer
-				//este codigo apenas exemplifica a comunicacao entre o cliente e o servidor
-				//nao faz qualquer tipo de autenticacao
-				if (user.length() != 0){
-					outStream.writeObject(Boolean.TRUE);
-				}
-				else {
-					outStream.writeObject(Boolean.FALSE);
-				}
-
-				outStream.close();
-				inStream.close();
- 			
-				socket.close();
-
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
-	}
-}
+					ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
+					ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
+	
+					String user = null;
+					String passwd = null;
 				
-*/
+					try {
+						user = (String)inStream.readObject();
+						passwd = (String)inStream.readObject();
+						System.out.println("User: " + user + "; Password: " + passwd);
+					}catch (ClassNotFoundException e1) {
+						e1.printStackTrace();
+					}
+				 
+					//TODO: refazer
+					//este codigo apenas exemplifica a comunicacao entre o cliente e o servidor
+					//nao faz qualquer tipo de autenticacao
+					if (user != null && user.length() != 0){
+						outStream.writeObject(Boolean.TRUE);
+					}
+					else {
+						outStream.writeObject(Boolean.FALSE);
+					}
+	
+					outStream.close();
+					inStream.close();
+					socket.close();
+	
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+		}
+    }
+
+
+
+}

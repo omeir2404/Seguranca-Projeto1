@@ -5,9 +5,7 @@ import java.net.Socket;
 import java.util.Scanner;
 public class SpertaClient {
     
-
-
-        
+    
     public static void main(String[] args) {
         SpertaClient client = new SpertaClient();
         client.run();

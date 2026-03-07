@@ -1,6 +1,7 @@
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.EOFException;
 import java.net.ServerSocket;
 import java.net.Socket;
 
@@ -91,10 +92,38 @@ public class SpertaServer extends Thread{
 					//nao faz qualquer tipo de autenticacao
 					if (user != null && user.length() != 0){
 						outStream.writeObject(Boolean.TRUE);
+						outStream.flush();
 					}
 					else {
 						outStream.writeObject(Boolean.FALSE);
+						outStream.flush();
 					}
+	
+					// // Command loop to handle client commands
+					// ############################################
+					// * o Chat diz que ha um problema de conexao(o server quebra a conexao dps de autenticar o user) e isso resolve
+					// ############################################
+					// try {
+					// 	boolean connected = true;
+					// 	while (connected) {
+					// 		try {
+					// 			Object command = inStream.readObject();
+					// 			String cmdStr = (String) command;
+					// 			System.out.println("Command from " + user + ": " + cmdStr);
+								
+					// 			// Echo response back to client
+					// 			String response = "Server received: " + cmdStr;
+					// 			outStream.writeObject(response);
+					// 			outStream.flush();
+					// 		} catch (EOFException e) {
+					// 			// Client disconnected
+					// 			connected = false;
+					// 			System.out.println("Client " + user + " disconnected");
+					// 		}
+					// 	}
+					// } catch (ClassNotFoundException e) {
+					// 	e.printStackTrace();
+					// }
 	
 					outStream.close();
 					inStream.close();

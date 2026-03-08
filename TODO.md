@@ -2,20 +2,20 @@
 
 ## Core Setup
 - [x] Validate startup args for `SpertaServer [port]` (default `22345`).
-- [ ] Validate startup args for `SpertaClient <serverAddress> <user-id> <password>`.
-- [ ] Support optional `:port` in `serverAddress` (default `22345`).
+- [x] Validate startup args for `SpertaClient <serverAddress> <user-id> <password>`.
+- [x] Support optional `:port` in `serverAddress` (default `22345`).
 
 ## Networking and Concurrency
-- [ ] Keep server listening for multiple simultaneous TCP clients.
-- [ ] Handle each client in a dedicated thread.
-- [ ] Ensure graceful disconnect handling without crashing server.
+- [x] Keep server listening for multiple simultaneous TCP clients.
+- [x] Handle each client in a dedicated thread.
+- [x] Ensure graceful disconnect handling without crashing server.
 
 ## Attestation and Authentication
 - [ ] Implement client attestation before authentication.
 - [ ] Client sends `SpertaClient` size metadata.
 - [ ] Server validates against local reference file (`SpertaClient:<size>`).
 - [ ] Return attestation result and print exactly `ATTESTATION OK` / `ATTESTATION FAILED` on client.
-- [ ] Implement auth outcomes: `WRONG-PWD`, `OK-NEW-USER`, `OK-USER`.
+- [x] Implement auth outcomes: `WRONG-PWD`, `OK-NEW-USER`, `OK-USER`.
 - [ ] On `WRONG-PWD`, allow client password retry.
 - [ ] Persist users and passwords on server text file.
 

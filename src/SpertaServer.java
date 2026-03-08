@@ -1,7 +1,7 @@
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.EOFException;
 import java.net.ServerSocket;
 import java.net.Socket;
 
@@ -11,13 +11,39 @@ public class SpertaServer extends Thread{
     private boolean run = false;
 	private Socket clientSocket;
 
-    
+    private static int validateInput(String[] args){
+		int port = 0;
+		if (args.length > 1 || args.length < 0){
+			System.out.println("Input Invalida: SpertaServer [port]");
+    		System.exit(-1);
+		}
+		if (args.length == 0)
+			return 0;
+		if(args.length == 1){
+			try {
+				port = Integer.parseInt(args[0]);
+			} catch (Exception e) {
+				System.out.println("A porta tem de ser de tipo Integer");
+    			System.exit(-1);
+			}
+			if (port < 1024 || port > 65523){
+			    System.err.println("Port must be between 1024 and 65535");
+    			System.exit(-1);
+			}
+			return port;
+		}
+		return 0;
+	}
+
     //FALTA
     public static void main(String[] args){
-		int port = 22345;
-		if (args.length > 0) {
-        	port = Integer.parseInt(args[0]);
-    	}
+		int port = validateInput(args);
+		// if (args.length > 0) {
+        // 	port = Integer.parseInt(args[0]);
+    	// }
+
+		if (port ==0)
+			port = 22345;
 		SpertaServer server = new SpertaServer();
     	server.startServer(port);
     }
@@ -91,40 +117,39 @@ public class SpertaServer extends Thread{
 					//este codigo apenas exemplifica a comunicacao entre o cliente e o servidor
 					//nao faz qualquer tipo de autenticacao
 					if (user != null && user.length() != 0){
-						outStream.writeObject(Boolean.TRUE);
+						outStream.writeObject("Cliente connectado com sucesso!");
 						outStream.flush();
 					}
 					else {
-						outStream.writeObject(Boolean.FALSE);
+						outStream.writeObject("Erro ao autenticar com servidor");
 						outStream.flush();
 					}
 	
 					// // Command loop to handle client commands
 					// ############################################
 					// * o Chat diz que ha um problema de conexao(o server quebra a conexao dps de autenticar o user) e isso resolve
-					// ############################################
-					// try {
-					// 	boolean connected = true;
-					// 	while (connected) {
-					// 		try {
-					// 			Object command = inStream.readObject();
-					// 			String cmdStr = (String) command;
-					// 			System.out.println("Command from " + user + ": " + cmdStr);
+					try {
+						boolean connected = true;
+						while (connected) {
+							try {
+								// Object command = inStream.readObject();
+								String cmdStr =  (String) inStream.readObject();
+								System.out.println("Command from " + user + ": " + cmdStr);
 								
-					// 			// Echo response back to client
-					// 			String response = "Server received: " + cmdStr;
-					// 			outStream.writeObject(response);
-					// 			outStream.flush();
-					// 		} catch (EOFException e) {
-					// 			// Client disconnected
-					// 			connected = false;
-					// 			System.out.println("Client " + user + " disconnected");
-					// 		}
-					// 	}
-					// } catch (ClassNotFoundException e) {
-					// 	e.printStackTrace();
-					// }
-	
+								// Echo response back to client
+								String response = "Server received: " + cmdStr;
+								outStream.writeObject(response);
+								outStream.flush();
+							} catch (EOFException e) {
+								// Client disconnected
+								connected = false;
+								System.out.println("Client " + user + " disconnected");
+							}
+						}
+					} catch (ClassNotFoundException e) {
+						e.printStackTrace();
+					}
+
 					outStream.close();
 					inStream.close();
 					socket.close();

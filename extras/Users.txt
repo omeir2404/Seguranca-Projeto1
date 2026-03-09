@@ -1,2 +1,3 @@
 User:pass
-Nexus:Eclipse
+Nexus:ehBueFixe
+Eclipse:ATuaMae

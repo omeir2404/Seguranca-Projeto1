@@ -80,7 +80,6 @@ public class SpertaClient {
     public void run(String host, int port, String userId, String password){
         try {
             Socket clientSocket = new Socket(host, port);
-            System.out.println("Connected to server!");
 
             ObjectOutputStream out = new ObjectOutputStream(clientSocket.getOutputStream());
             out.flush();
@@ -97,14 +96,28 @@ public class SpertaClient {
                 String authResponse = (String) in.readObject();
                 System.out.println("Server: " + authResponse);
                 
+                if(authResponse.equals("WRONG-PWD")){
+                    out.flush();
+                    System.out.print("Escreva aqui a password correta: ");
+                    password = sc.nextLine();
+                    out.writeObject(password);
+                    authResponse = (String) in.readObject();
+                    out.flush();
+                }
                 // Handle authentication response: OK-USER, OK-NEW-USER, WRONG-PWD
                 // Temporarily also accept "Cliente connectado com sucesso!" until server implements proper protocol
                 if (authResponse.equals("OK-USER") || authResponse.equals("OK-NEW-USER") || 
                     authResponse.equals("Cliente connectado com sucesso!")) {
                     // Command prompt loop
                     boolean running = true;
+                    System.out.println("Connected to server!");
+                    System.out.println("• CREATE <hm> # Criar casa <hm> - utilizador é Owner \n" +
+                                            "• ADD <user1> <hm> <s> # Adicionar utilizador <user1> à casa <hm>, seção <s> \n" +
+                                            "• RD <hm> <s> # Registar um Dispositivo na casa <hm>, na seção <s> \n" +
+                                            "• EC <hm> <d> <int> # Enviar valor <int> de estado/temporização, do dispositivo <d> da casa <hm>, para o servidor. \n" +
+                                            "• RT <hm># Receber a informação sobre o último comando (estados/temporizações) enviado a cada dispositivo da casa <hm>, desde que o utilizador tenha permissões. \n" +
+                                            "• RH <hm> <d># Receber o Histórico (ficheiro de log .csv) de comandos enviados ao dispositivo <d> da casa <hm>, desde que o utilizador tenha permissões. ");
                     while (running) {
-
                         System.out.print("Insere aqui o comando: ");
                         System.out.flush();
                         String command = sc.nextLine();
@@ -118,17 +131,19 @@ public class SpertaClient {
                             
                             try {
                                 Object response = in.readObject();
-                                System.out.println("Servidor: " + response);
+                                System.out.println(response);
                             } catch (Exception e) {
                                 System.out.println("Erro a ler resposta: " + e.getMessage());
                             }
                         }
                     }
-                } else if (authResponse.equals("WRONG-PWD")) {
-                    System.out.println("Password Errada!");
-                } else {
-                    System.out.println("A Autenticação falhou: " + authResponse);
+                } 
+                else if (authResponse.equals("WRONG-PWD")) {
+                    System.out.println("Password Errada! CHÃOO");
                 }
+                else {
+                   System.out.println("A Autenticação falhou: " + authResponse);
+               }
             } catch (Exception e) {
                 e.printStackTrace();
             }

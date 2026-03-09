@@ -1,6 +1,8 @@
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.EOFException;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -15,6 +17,8 @@ public class SpertaServer extends Thread{
     private boolean running  = true;
 	private Socket clientSocket;
 	private static Map<String, String> Users;
+	private static Map<String, String> Houses;
+	private static Map<String, Map<String, String>> Permissions;
 
     private static int validateInput(String[] args){
 		int port = 0;
@@ -42,6 +46,8 @@ public class SpertaServer extends Thread{
 
 	public static void initialize_server_vars(){
 		Users = new HashMap<>();
+		Houses = new HashMap<>();
+		// Mu
 
 		try (BufferedReader reader = new BufferedReader(new FileReader("extras/Users.txt"))) {
 			String line;
@@ -71,6 +77,15 @@ public class SpertaServer extends Thread{
 			System.err.println("Erro ao ler extras/Users.txt: " + e.getMessage());
 			System.exit(-1);
 
+		}
+	}
+
+	private static synchronized void appendUserToFile(String user, String pass) {
+		try (BufferedWriter writer = new BufferedWriter(new FileWriter("extras/Users.txt", true))) {
+			writer.newLine();
+			writer.write(user + ":" + pass);
+		} catch (IOException e) {
+			System.err.println("Erro ao escrever em extras/Users.txt: " + e.getMessage());
 		}
 	}
 
@@ -133,14 +148,20 @@ public class SpertaServer extends Thread{
 			System.out.println("Thread do servidor criada para cada cliente.");
     	}
 
-		private boolean authenticateClient(String user, String pass) {
-			Boolean correct = false;
+		private int authenticateClient(String user, String pass) {// FALTA VER DO NEW USER
+			int correct = -1;
 			if (user == null || pass == null){
-				return false;
-			} 
+				return -1;
+			}
+
 			String storedPass = Users.get(user);
-			if(storedPass != null && storedPass.equals(pass)){
-					correct = true;
+			if (storedPass == null){
+				Users.put(user, pass);
+				appendUserToFile(user, pass);
+				return 1;
+			}
+			if(storedPass.equals(pass)){
+					correct = 0;
 			}
 			// else{//*ele aqui pede ao server para a pass de novo, devia pedir ao cliente
 			// 	Scanner sc = new Scanner(System.in);
@@ -154,64 +175,139 @@ public class SpertaServer extends Thread{
 
 		}
 
-		public void run(){
-				try {
-					ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
-					ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
-	
-					String user = null;
-					String passwd = null;
+		//Método CREATE
+		private String createHouse(String user, String house) {
+			if(Houses.containsKey(house)){
+				return "NOK";
+			}
+			Houses.put(house, user);
+			return "OK";
+		}
+
+		//VER
+		//Método ADD
+		private String addHouse(String user, String userAdd, String house, String section) {
+			if(!Houses.containsKey(house)){
+					return "NOHM";
+				}
+				if(!Users.containsKey(userAdd)){
+					return "NOUSER";
+				}
+				if(!Houses.get(house).equals(user)){
+					return "NOPERM";
+				}
 				
+				Map<String, String> permissions = Permissions.get(house);
+    			permissions.put(userAdd, section);
+				return "OK";
+		}	
+
+		//VER
+		private String handleCommand(String cmd, String user) {
+			if (cmd == null || cmd.trim().isEmpty()) {
+				return "ERRO: Não colocaste o comando!";
+			}
+			cmd = cmd.trim(); //Remove espaços no início e no fim
+			String[] parts = cmd.split(" "); //Separa a frase pelos espaços
+			String comando = parts[0].toUpperCase();
+		
+			//Comando CREATE
+			if (comando.equals("CREATE")) {
+				if (parts.length != 2) {
+					return "ERRO: O correto é: CREATE <hm>";
+				}
+				String houseName = parts[1];
+				return createHouse(user, houseName);
+			//Comando ADD
+			}else if(comando.equals("ADD")){
+				if (parts.length != 5) {
+					return "ERRO: O correto é:  ADD <user1> <hm> <s>";
+				}
+				String userAdd = parts[1];
+    			String house = parts[2];
+    			String section = parts[3];
+				return addHouse(user, userAdd, house, section);
+			}
+				return "ERRO: Comando desconhecido: " + comando;
+		}
+
+
+		@Override
+		public void run(){
+			try {
+				ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
+				ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
+
+				String user = null;
+				String passwd = null;
+			
+				try {
+					user = (String)inStream.readObject();
+					passwd = (String)inStream.readObject();
+					System.out.println("Utilizador: " + user + "; Password: " + passwd);
+				}catch (ClassNotFoundException e1) {
+					e1.printStackTrace();
+				}
+			 
+				//TODO: refazer
+				//este codigo apenas exemplifica a comunicacao entre o cliente e o servidor
+				//nao faz qualquer tipo de autenticacao
+				int authenticated = authenticateClient(user, passwd);
+				if (user != null && !user.isEmpty() && authenticated >= 0) {
+					if(authenticated == 1)
+						outStream.writeObject("OK-NEW-USER");
+					else
+						outStream.writeObject("OK-USER");
+					outStream.flush();
+
+				}
+				else {
+					outStream.writeObject("WRONG-PWD");
+
 					try {
-						user = (String)inStream.readObject();
 						passwd = (String)inStream.readObject();
-						System.out.println("Utilizador: " + user + "; Password: " + passwd);
+						System.out.println("Password recebido: " + passwd);
+						authenticated = authenticateClient(user, passwd);
+						if (authenticated >= 0){
+							outStream.writeObject("OK-USER");
+							outStream.flush();
+						}
+						
 					}catch (ClassNotFoundException e1) {
 						e1.printStackTrace();
 					}
-				 
-					//TODO: refazer
-					//este codigo apenas exemplifica a comunicacao entre o cliente e o servidor
-					//nao faz qualquer tipo de autenticacao
-					if (user != null && !user.isEmpty() && authenticateClient(user, passwd)) {
-						outStream.writeObject("Cliente connectado com sucesso!");
-						outStream.flush();
-					}
-					else {
-						outStream.writeObject("Erro ao autenticar com servidor");
-						outStream.flush();
-					}
-	
-					// Command loop to handle client commands
-					try {
-						boolean connected = true;
-						while (connected) {
-							try {
-								// Object command = inStream.readObject();
-								String cmdStr =  (String) inStream.readObject();
-								System.out.println("Comando de " + user + ": " + cmdStr);
-								
-								// Echo response back to client
-								String response = "Servidor recebido: " + cmdStr;
-								outStream.writeObject(response);
-								outStream.flush();
-							} catch (EOFException e) {
-								// Client disconnected
-								connected = false;
-								System.out.println("Cliente " + user + " desconectado");
-							}
-						}
-					} catch (ClassNotFoundException e) {
-						e.printStackTrace();
-					}
+					outStream.flush();
+				}
 
-					outStream.close();
-					inStream.close();
-					socket.close();
-	
-				} catch (IOException e) {
+				// Command loop to handle client commands
+				try {
+					boolean connected = true;
+					while (connected) {
+						try {
+							// Object command = inStream.readObject();
+							String cmdStr =  (String) inStream.readObject();
+							System.out.println("Comando de " + user + ": " + cmdStr);
+							
+							String response = handleCommand(cmdStr, user);
+							outStream.writeObject(response);
+							outStream.flush();
+						} catch (EOFException e) {
+							// Client disconnected
+							connected = false;
+							System.out.println("Cliente " + user + " desconectado");
+						}
+					}
+				} catch (ClassNotFoundException e) {
 					e.printStackTrace();
 				}
+
+				outStream.close();
+				inStream.close();
+				socket.close();
+
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
     }
 

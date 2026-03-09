@@ -7,7 +7,7 @@ BIN_DIR = bin
 SERVER_CLASS = SpertaServer
 SERVER_ARGS = 2223
 CLIENT_CLASS = SpertaClient
-CLIENT_ARGS = 127.0.0.1:2223 Nexus Eclipse
+CLIENT_ARGS = 127.0.0.1:2223 Nexus ehBueFixe
 CLIENT_WRONG_ARGS = 127.0.0.1:2223 Nexus Eclipsew
 
 

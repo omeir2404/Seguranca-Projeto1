@@ -15,26 +15,26 @@
 - [ ] Client sends `SpertaClient` size metadata.
 - [ ] Server validates against local reference file (`SpertaClient:<size>`).
 - [ ] Return attestation result and print exactly `ATTESTATION OK` / `ATTESTATION FAILED` on client.
-- [x] Implement auth outcomes: `WRONG-PWD`, `OK-NEW-USER`, `OK-USER`.
+- [ ] Implement auth outcomes: `WRONG-PWD`, `OK-NEW-USER`, `OK-USER`.-- falta ver do new user   
 - [ ] On `WRONG-PWD`, allow client password retry.
 - [ ] Persist users and passwords on server text file.
 
 ## Client CLI and Protocol Loop
-- [ ] Show command menu after successful authentication.
+- [x] Show command menu after successful authentication.
 - [ ] Implement command input loop until `CTRL+C`.
 - [ ] Send each command request to server and print reply.
 - [ ] Validate malformed input and show user-friendly errors.
-
+3
 ## Command: CREATE
-- [ ] Implement `CREATE <hm>` on server.
-- [ ] Return `OK` when home is created.
-- [ ] Return `NOK` when home already exists.
+- [x] Implement `CREATE <hm>` on server.
+- [x] Return `OK` when home is created.
+- [x] Return `NOK` when home already exists.
 - [ ] Persist home owner and metadata.
 
 ## Command: ADD
-- [ ] Implement `ADD <user1> <hm> <s>`.
+- [x] Implement `ADD <user1> <hm> <s>`.
 - [ ] Allow section permission by section letter or full house with `all`.
-- [ ] Return one of: `OK`, `NOPERM`, `NOHM`, `NOUSER`.
+- [x] Return one of: `OK`, `NOPERM`, `NOHM`, `NOUSER`.
 - [ ] Persist permission updates.
 
 ## Command: RD

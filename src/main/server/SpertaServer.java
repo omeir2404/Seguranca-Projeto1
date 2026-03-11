@@ -1,5 +1,7 @@
 package main.server;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.EOFException;
@@ -22,7 +24,12 @@ public class SpertaServer extends Thread{
 	private static Map<String, String> Houses;
 	private static Map<String, Map<String, String>> Permissions;
 
-    private static int validateInput(String[] args){
+	private static String USERS_FILE = "extras/Users.txt";
+	private static String HOUSES_FILE = "extras/Houses.txt";
+	private static String PERMISSIONS_FILE = "extras/Permissions.txt";
+	private static String LOGS_DIR = "logs/";
+
+    private static int validateInput(@NotNull String[] args){
 		int port = 0;
 		if (args.length > 1 || args.length < 0){
 			System.out.println("Input Inválido: SpertaServer [port]");

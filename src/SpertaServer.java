@@ -148,7 +148,7 @@ public class SpertaServer extends Thread{
 			System.out.println("Thread do servidor criada para cada cliente.");
     	}
 
-		private int authenticateClient(String user, String pass) {// FALTA VER DO NEW USER
+		private int authenticateClient(String user, String pass) {
 			int correct = -1;
 			if (user == null || pass == null){
 				return -1;
@@ -163,14 +163,7 @@ public class SpertaServer extends Thread{
 			if(storedPass.equals(pass)){
 					correct = 0;
 			}
-			// else{//*ele aqui pede ao server para a pass de novo, devia pedir ao cliente
-			// 	Scanner sc = new Scanner(System.in);
-			// 	System.out.print("Password incorreta, experimenta de novo:");
-			// 	pass = sc.nextLine();
-			// 	if(storedPass != null && storedPass.equals(pass)){
-			// 		correct = true;
-			// 	}
-			// }
+
 			return correct;
 
 		}
@@ -207,8 +200,8 @@ public class SpertaServer extends Thread{
 			if (cmd == null || cmd.trim().isEmpty()) {
 				return "ERRO: Não colocaste o comando!";
 			}
-			cmd = cmd.trim(); //Remove espaços no início e no fim
-			String[] parts = cmd.split(" "); //Separa a frase pelos espaços
+			cmd = cmd.trim();
+			String[] parts = cmd.split(" ");
 			String comando = parts[0].toUpperCase();
 		
 			//Comando CREATE
@@ -249,13 +242,11 @@ public class SpertaServer extends Thread{
 					e1.printStackTrace();
 				}
 			 
-				//TODO: refazer
-				//este codigo apenas exemplifica a comunicacao entre o cliente e o servidor
-				//nao faz qualquer tipo de autenticacao
 				int authenticated = authenticateClient(user, passwd);
 				if (user != null && !user.isEmpty() && authenticated >= 0) {
-					if(authenticated == 1)
+					if(authenticated == 1){
 						outStream.writeObject("OK-NEW-USER");
+					}
 					else
 						outStream.writeObject("OK-USER");
 					outStream.flush();

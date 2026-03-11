@@ -6,27 +6,27 @@
 - [x] Support optional `:port` in `serverAddress` (default `22345`).
 
 ## Networking and Concurrency
-- [x] Keep server listening for multiple simultaneous TCP clients.
-- [x] Handle each client in a dedicated thread.
-- [x] Ensure graceful disconnect handling without crashing server.
+- [x] Keep main.server listening for multiple simultaneous TCP clients.
+- [x] Handle each main.client in a dedicated thread.
+- [x] Ensure graceful disconnect handling without crashing main.server.
 
 ## Attestation and Authentication
-- [ ] Implement client attestation before authentication.
+- [ ] Implement main.client attestation before authentication.
 - [ ] Client sends `SpertaClient` size metadata.
 - [ ] Server validates against local reference file (`SpertaClient:<size>`).
-- [ ] Return attestation result and print exactly `ATTESTATION OK` / `ATTESTATION FAILED` on client.
+- [ ] Return attestation result and print exactly `ATTESTATION OK` / `ATTESTATION FAILED` on main.client.
 - [ ] Implement auth outcomes: `WRONG-PWD`, `OK-NEW-USER`, `OK-USER`.-- falta ver do new user   
-- [ ] On `WRONG-PWD`, allow client password retry.
-- [ ] Persist users and passwords on server text file.
+- [ ] On `WRONG-PWD`, allow main.client password retry.
+- [ ] Persist users and passwords on main.server text file.
 
 ## Client CLI and Protocol Loop
 - [x] Show command menu after successful authentication.
 - [ ] Implement command input loop until `CTRL+C`.
-- [ ] Send each command request to server and print reply.
+- [ ] Send each command request to main.server and print reply.
 - [ ] Validate malformed input and show user-friendly errors.
 3
 ## Command: CREATE
-- [x] Implement `CREATE <hm>` on server.
+- [x] Implement `CREATE <hm>` on main.server.
 - [x] Return `OK` when home is created.
 - [x] Return `NOK` when home already exists.
 - [ ] Persist home owner and metadata.
@@ -58,13 +58,13 @@
 - [ ] Build data file containing latest command per accessible device.
 - [ ] Use protocol: `OK` + `LONG size` + file bytes.
 - [ ] Return one of: `NODATA`, `NOHM`, `NOPERM` when invalid.
-- [ ] Save received file locally on client.
+- [ ] Save received file locally on main.client.
 
 ## Command: RH
 - [ ] Implement `RH <hm> <d>`.
 - [ ] Return device history `.csv` using `OK` + `LONG size` + file bytes.
 - [ ] Return one of: `NODATA`, `NOHM`, `NOD`, `NOPERM` when invalid.
-- [ ] Save received file locally on client.
+- [ ] Save received file locally on main.client.
 
 ## Server Persistence
 - [ ] Maintain users/passwords file.
@@ -75,11 +75,11 @@
 
 ## Robustness and Error Handling
 - [ ] Handle `EOFException` and broken sockets cleanly.
-- [ ] Prevent one failed request from terminating client thread.
+- [ ] Prevent one failed request from terminating main.client thread.
 - [ ] Validate integer parsing and command arity safely.
 
 ## Build, Package, and Delivery
-- [ ] Build runnable client and server JARs.
+- [ ] Build runnable main.client and main.server JARs.
 - [ ] Verify compile/run commands are documented.
 - [ ] Write `readme.txt` with build steps, run steps, and known limitations.
 - [ ] Create `SegC-grupoXXproj1-fase1.zip` with source + JARs + readme.

@@ -14,10 +14,10 @@ CLIENT_WRONG_ARGS = 127.0.0.1:2223 Nexus Eclipsew
 compile:
 	@$(JAVAC) -d $(BIN_DIR) $(SRC_DIR)/*.java
 
-server: compile
+main.server: compile
 	@$(JAVA) -cp $(BIN_DIR) $(SERVER_CLASS) $(SERVER_ARGS)
 
-client: compile
+main.client: compile
 	@$(JAVA) -cp $(BIN_DIR) $(CLIENT_CLASS) $(CLIENT_ARGS)
 
 wrongclient: compile

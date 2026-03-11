@@ -1,3 +1,5 @@
+package main.server;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.EOFException;
@@ -270,7 +272,7 @@ public class SpertaServer extends Thread{
 					outStream.flush();
 				}
 
-				// Command loop to handle client commands
+				// Command loop to handle main.client commands
 				try {
 					boolean connected = true;
 					while (connected) {

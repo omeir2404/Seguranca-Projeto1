@@ -1,3 +1,5 @@
+package main.client;
+
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -105,12 +107,12 @@ public class SpertaClient {
                     out.flush();
                 }
                 // Handle authentication response: OK-USER, OK-NEW-USER, WRONG-PWD
-                // Temporarily also accept "Cliente connectado com sucesso!" until server implements proper protocol
+                // Temporarily also accept "Cliente connectado com sucesso!" until main.server implements proper protocol
                 if (authResponse.equals("OK-USER") || authResponse.equals("OK-NEW-USER") || 
                     authResponse.equals("Cliente connectado com sucesso!")) {
                     // Command prompt loop
                     boolean running = true;
-                    System.out.println("Connected to server!");
+                    System.out.println("Connected to main.server!");
                     System.out.println("• CREATE <hm> # Criar casa <hm> - utilizador é Owner \n" +
                                             "• ADD <user1> <hm> <s> # Adicionar utilizador <user1> à casa <hm>, seção <s> \n" +
                                             "• RD <hm> <s> # Registar um Dispositivo na casa <hm>, na seção <s> \n" +

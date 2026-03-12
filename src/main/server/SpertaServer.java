@@ -1,7 +1,5 @@
 package main.server;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.EOFException;
@@ -12,6 +10,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.security.Permissions;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -23,6 +22,8 @@ public class SpertaServer extends Thread{
 	private static Map<String, String> Users;
 	private static Map<String, String> Houses;
 	private static Map<String, Map<String, String>> Permissions;
+	private static Map<String, Map<String, Integer>> Device;
+	private static Map<String, Map<String, Integer>> DeviceState;
 
 	private static String USERS_FILE = "extras/Users.txt";
 	private static String HOUSES_FILE = "extras/Houses.txt";
@@ -56,7 +57,10 @@ public class SpertaServer extends Thread{
 	public static void initialize_server_vars(){
 		Users = new HashMap<>();
 		Houses = new HashMap<>();
-		// Mu
+		Permissions = new HashMap<>();
+		Device = new HashMap<>();
+		DeviceState = new HashMap<>();
+
 
 		try (BufferedReader reader = new BufferedReader(new FileReader("extras/Users.txt"))) {
 			String line;
@@ -152,8 +156,11 @@ public class SpertaServer extends Thread{
 
 	class ClientHandler extends Thread{
     	private Socket socket;
+		private ServerCommandHandler commandHandler;
+		
     	ClientHandler(Socket sock) {
 			this.socket = sock;
+			this.commandHandler = new ServerCommandHandler(Users, Houses, Permissions, Device, DeviceState);
 			System.out.println("Thread do servidor criada para cada cliente.");
     	}
 
@@ -176,63 +183,6 @@ public class SpertaServer extends Thread{
 			return correct;
 
 		}
-
-		//Método CREATE
-		private String createHouse(String user, String house) {
-			if(Houses.containsKey(house)){
-				return "NOK";
-			}
-			Houses.put(house, user);
-			return "OK";
-		}
-
-		//VER
-		//Método ADD
-		private String addHouse(String user, String userAdd, String house, String section) {
-			if(!Houses.containsKey(house)){
-					return "NOHM";
-				}
-				if(!Users.containsKey(userAdd)){
-					return "NOUSER";
-				}
-				if(!Houses.get(house).equals(user)){
-					return "NOPERM";
-				}
-				
-				Map<String, String> permissions = Permissions.get(house);
-    			permissions.put(userAdd, section);
-				return "OK";
-		}	
-
-		//VER
-		private String handleCommand(String cmd, String user) {
-			if (cmd == null || cmd.trim().isEmpty()) {
-				return "ERRO: Não colocaste o comando!";
-			}
-			cmd = cmd.trim();
-			String[] parts = cmd.split(" ");
-			String comando = parts[0].toUpperCase();
-		
-			//Comando CREATE
-			if (comando.equals("CREATE")) {
-				if (parts.length != 2) {
-					return "ERRO: O correto é: CREATE <hm>";
-				}
-				String houseName = parts[1];
-				return createHouse(user, houseName);
-			//Comando ADD
-			}else if(comando.equals("ADD")){
-				if (parts.length != 5) {
-					return "ERRO: O correto é:  ADD <user1> <hm> <s>";
-				}
-				String userAdd = parts[1];
-    			String house = parts[2];
-    			String section = parts[3];
-				return addHouse(user, userAdd, house, section);
-			}
-				return "ERRO: Comando desconhecido: " + comando;
-		}
-
 
 		@Override
 		public void run(){
@@ -288,7 +238,7 @@ public class SpertaServer extends Thread{
 							String cmdStr =  (String) inStream.readObject();
 							System.out.println("Comando de " + user + ": " + cmdStr);
 							
-							String response = handleCommand(cmdStr, user);
+							String response = commandHandler.handleCommand(cmdStr, user);
 							outStream.writeObject(response);
 							outStream.flush();
 						} catch (EOFException e) {

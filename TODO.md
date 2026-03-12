@@ -15,9 +15,10 @@
 - [ ] Client sends `SpertaClient` size metadata.
 - [ ] Server validates against local reference file (`SpertaClient:<size>`).
 - [ ] Return attestation result and print exactly `ATTESTATION OK` / `ATTESTATION FAILED` on main.client.
-- [ ] Implement auth outcomes: `WRONG-PWD`, `OK-NEW-USER`, `OK-USER`.-- falta ver do new user   
-- [ ] On `WRONG-PWD`, allow main.client password retry.
-- [ ] Persist users and passwords on main.server text file.
+- [x] Implement auth outcomes: `WRONG-PWD`, `OK-NEW-USER`, `OK-USER`.
+- [x] On `WRONG-PWD`, allow main.client password retry.
+- [x] Persist users and passwords on main.server text file.
+- [ ] server needs to be restared to recognize new users added to text file
 
 ## Client CLI and Protocol Loop
 - [x] Show command menu after successful authentication.

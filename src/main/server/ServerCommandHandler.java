@@ -62,9 +62,9 @@ public class ServerCommandHandler {
 
     //Método EC (Enviar valor)
     //FALTA
-    public String sendInt(){
+    // public String sendInt(){
 
-    }
+    // }
 
     //Método RT (Obtém ficheiro de texto)
 

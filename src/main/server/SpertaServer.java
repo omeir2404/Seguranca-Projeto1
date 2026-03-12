@@ -10,7 +10,8 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.security.Permissions;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -29,6 +30,25 @@ public class SpertaServer extends Thread{
 	private static String HOUSES_FILE = "extras/Houses.txt";
 	private static String PERMISSIONS_FILE = "extras/Permissions.txt";
 	private static String LOGS_DIR = "logs/";
+
+	private static void initializeFilePaths() {
+		Path current = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize();
+		Path projectRoot = current;
+
+		while (current != null) {
+			Path usersFile = current.resolve("extras").resolve("Users.txt");
+			if (usersFile.toFile().exists()) {
+				projectRoot = current;
+				break;
+			}
+			current = current.getParent();
+		}
+
+		USERS_FILE = projectRoot.resolve("extras").resolve("Users.txt").toString();
+		HOUSES_FILE = projectRoot.resolve("extras").resolve("Houses.txt").toString();
+		PERMISSIONS_FILE = projectRoot.resolve("extras").resolve("Permissions.txt").toString();
+		LOGS_DIR = projectRoot.resolve("logs").toString();
+	}
 
     private static int validateInput(@NotNull String[] args){
 		int port = 0;
@@ -62,7 +82,7 @@ public class SpertaServer extends Thread{
 		DeviceState = new HashMap<>();
 
 
-		try (BufferedReader reader = new BufferedReader(new FileReader("extras/Users.txt"))) {
+		try (BufferedReader reader = new BufferedReader(new FileReader(USERS_FILE))) {
 			String line;
 			boolean firstLine = true;
 
@@ -87,24 +107,25 @@ public class SpertaServer extends Thread{
 				}
 			}
 		} catch (IOException e) {
-			System.err.println("Erro ao ler extras/Users.txt: " + e.getMessage());
+			System.err.println("Erro ao ler " + USERS_FILE + ": " + e.getMessage());
 			System.exit(-1);
 
 		}
 	}
 
 	private static synchronized void appendUserToFile(String user, String pass) {
-		try (BufferedWriter writer = new BufferedWriter(new FileWriter("extras/Users.txt", true))) {
+		try (BufferedWriter writer = new BufferedWriter(new FileWriter(USERS_FILE, true))) {
 			writer.newLine();
 			writer.write(user + ":" + pass);
 		} catch (IOException e) {
-			System.err.println("Erro ao escrever em extras/Users.txt: " + e.getMessage());
+			System.err.println("Erro ao escrever em " + USERS_FILE + ": " + e.getMessage());
 		}
 	}
 
     //FALTA
     public static void main(String[] args){
 		int port = validateInput(args);
+		initializeFilePaths();
 		initialize_server_vars();
 
 		if (port ==0)

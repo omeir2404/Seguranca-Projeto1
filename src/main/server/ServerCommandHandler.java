@@ -1,5 +1,6 @@
 package main.server;
 
+import java.util.HashMap;
 import java.util.Map;
 
 public class ServerCommandHandler {
@@ -54,17 +55,59 @@ public class ServerCommandHandler {
             return "NOPERM";
         }
         
-        Map<String, Integer> devices = device.get(house);
-        int contagem = devices.get(section) + 1;
-        devices.put(section, contagem);
+        Map<String, Integer> devices = deviceState.get(house);
+
+        if (devices == null) {
+            devices = new HashMap<>();
+            deviceState.put(house, devices);
+        }
+
+        int count = 0;
+        for (String dev : devices.keySet()) {
+            if (dev.startsWith(section)) {
+                count++;
+            }
+        }
+
+        String deviceName = section + (count + 1);
+        devices.put(deviceName, 0);
         return "OK";
     }
 
     //Método EC (Enviar valor)
-    //FALTA
-    // public String sendInt(){
+    public String sendInt(String user, String house, String device, String valueStr){
+        int value;
+        try {
+            value = Integer.parseInt(valueStr);
+        } catch (NumberFormatException e) {
+            return "NOK";
+        }
+        if (value <= 1 || value > 600) {
+            return "NOK";
+        }
+        if (!houses.containsKey(house)) {
+            return "NOHM";
+        }
+        Map<String, Integer> devices = deviceState.get(house);
+        if (devices == null || !devices.containsKey(device)) {
+            return "NOD";
+        }
+        String dono  = houses.get(house);
+        if (!dono.equals(user)) {
+            Map<String, String> permissionsMap = permissions.get(house);
+            if (permissionsMap == null || !permissionsMap.containsKey(user)) {
+                return "NOPERM";
+            }
 
-    // }
+            String section = permissionsMap.get(user);
+            if (!section.equalsIgnoreCase("all") && !device.startsWith(section)) {
+                return "NOPERM";
+            }
+        }
+
+        devices.put(device, value);
+        return "OK";
+    }
 
     //Método RT (Obtém ficheiro de texto)
 
@@ -106,7 +149,19 @@ public class ServerCommandHandler {
             String house = parts[1];
             String section = parts[2];
             return registerDevice(user, house, section);
+        
+        //Comando EC
+        }else if (comando.equals("EC")) {
+            if(parts.length != 4){
+                return "ERRO: O correto é: EC <hm> <d> <int>";
+            }
+            String house = parts[1];
+            String device = parts[2];
+            String value = parts[3];
+            return sendInt(user, house, device, value);
         }
+
+
 
         return "ERRO: Comando desconhecido: " + comando;
     }

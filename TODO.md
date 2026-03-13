@@ -18,7 +18,7 @@
 - [x] Implement auth outcomes: `WRONG-PWD`, `OK-NEW-USER`, `OK-USER`.
 - [x] On `WRONG-PWD`, allow main.client password retry.
 - [x] Persist users and passwords on main.server text file.
-- [ ] server needs to be restared to recognize new users added to text file
+- [ ] server needs to be restared to recognize new users added to text file -- new issue
 
 ## Client CLI and Protocol Loop
 - [x] Show command menu after successful authentication.
@@ -39,18 +39,18 @@
 - [ ] Persist permission updates.
 
 ## Command: RD
-- [ ] Implement `RD <hm> <s>`.
+- [x] Implement `RD <hm> <s>`.
 - [ ] Allow only owner to register devices.
-- [ ] Maintain per-section device counters starting at `1`.
+- [x] Maintain per-section device counters starting at `1`.
 - [ ] Generate device IDs from section letter + counter.
-- [ ] Return one of: `OK`, `NOPERM`, `NOHM`.
+- [x] Return one of: `OK`, `NOPERM`, `NOHM`.
 - [ ] Persist counters and devices.
 
 ## Command: EC
-- [ ] Implement `EC <hm> <d> <int>`.
-- [ ] Validate state/temporization values: `0`, `1`, `2..600`.
+- [x] Implement `EC <hm> <d> <int>`.
+- [x] ValsendIntidate state/temporization values: `0`, `1`, `2..600`.
 - [ ] Enforce user permissions before changing device state.
-- [ ] Return one of: `OK`, `NOK`, `NOHM`, `NOD`, `NOPERM`.
+- [x] Return one of: `OK`, `NOK`, `NOHM`, `NOD`, `NOPERM`.
 - [ ] Persist latest state per device.
 - [ ] Append timestamped rows to per-device `.csv` history.
 
@@ -68,7 +68,7 @@
 - [ ] Save received file locally on main.client.
 
 ## Server Persistence
-- [ ] Maintain users/passwords file.
+- [x] Maintain users/passwords file.
 - [ ] Maintain homes/devices/permissions file.
 - [ ] Maintain latest state/temporization file.
 - [ ] Maintain per-device `.csv` logs.

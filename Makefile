@@ -9,11 +9,26 @@ SERVER_ARGS = 2223
 CLIENT_CLASS = main.client.SpertaClient
 CLIENT_ARGS = 127.0.0.1:2223 Nexus ehBueFixe
 CLIENT_WRONG_ARGS = 127.0.0.1:2223 Nexus Eclipsew
+CLIENT_ARGS_NO_PORT = 127.0.0.1 Nexus ehBueFixe
 
 
 compile:
 	@mkdir -p $(BIN_DIR)/main/server $(BIN_DIR)/main/client
 	@$(JAVAC) -d $(BIN_DIR) $(SRC_DIR)/main/server/*.java $(SRC_DIR)/main/client/*.java
+	@printf 'SpertaClient:%s\n' "$$(stat -c%s bin/main/client/SpertaClient.class)" > extras/attestation.txt
+
+
+compile_client:
+	@$(JAVAC) -d $(BIN_DIR)  $(SRC_DIR)/main/client/*.java
+	@printf 'SpertaClient:%s\n' "$$(stat -c%s bin/main/client/SpertaClient.class)" > extras/attestation.txt
+
+
+compile_server:
+	@$(JAVAC) -d $(BIN_DIR) $(SRC_DIR)/main/server/*.java 
+
+
+# size_check: 
+# 	@printf 'SpertaClient:%s\n' "$$(stat -c%s bin/main/client/SpertaClient.class)" > extras/attestation.txt
 
 server: compile
 	$(JAVA) -cp $(BIN_DIR) $(SERVER_CLASS) $(SERVER_ARGS)
@@ -23,6 +38,13 @@ client: compile
 
 wrongclient: compile
 	@$(JAVA) -cp $(BIN_DIR) $(CLIENT_CLASS) $(CLIENT_WRONG_ARGS)
+
+server_no_port: compile
+	$(JAVA) -cp $(BIN_DIR) $(SERVER_CLASS) 
+
+client_no_port: compile
+	@$(JAVA) -cp $(BIN_DIR) $(CLIENT_CLASS) $(CLIENT_ARGS_NO_PORT)
+
 
 re: clean compile
 

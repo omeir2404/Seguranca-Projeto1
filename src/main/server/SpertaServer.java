@@ -30,6 +30,7 @@ public class SpertaServer extends Thread{
 	private static String HOUSES_FILE = "extras/Houses.txt";
 	private static String PERMISSIONS_FILE = "extras/Permissions.txt";
 	private static String LOGS_DIR = "logs/";
+	private static String ATTESTATION_FILE = "extras/attestation.txt";
 
 	private static void initializeFilePaths() {
 		Path current = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize();
@@ -48,6 +49,7 @@ public class SpertaServer extends Thread{
 		HOUSES_FILE = projectRoot.resolve("extras").resolve("Houses.txt").toString();
 		PERMISSIONS_FILE = projectRoot.resolve("extras").resolve("Permissions.txt").toString();
 		LOGS_DIR = projectRoot.resolve("logs").toString();
+		ATTESTATION_FILE = projectRoot.resolve("extras").resolve("attestation.txt").toString();
 	}
 
     private static int validateInput(@NotNull String[] args){
@@ -185,7 +187,7 @@ public class SpertaServer extends Thread{
 			System.out.println("Thread do servidor criada para cada cliente.");
     	}
 
-		private int authenticateClient(String user, String pass) {
+		private int clientInFile(String user, String pass) {
 			int correct = -1;
 			if (user == null || pass == null){
 				return -1;
@@ -205,49 +207,108 @@ public class SpertaServer extends Thread{
 
 		}
 
+		private boolean attestClient(ObjectInputStream inStream, ObjectOutputStream outStream) throws IOException {
+			String attestationMessage;
+			try {
+				attestationMessage = (String) inStream.readObject();
+			} catch (ClassNotFoundException e) {
+				System.err.println("Erro a ler atestação do cliente: " + e.getMessage());
+				outStream.writeObject("ATTEST FAILED");
+				outStream.flush();
+				return false;
+			}
+
+			String expectedAttestation = null;
+			try (BufferedReader reader = new BufferedReader(new FileReader(ATTESTATION_FILE))) {
+				String line;
+				while ((line = reader.readLine()) != null) {
+					line = line.trim();
+					if (!line.isEmpty()) {
+						expectedAttestation = line;
+						break;
+					}
+				}
+			}
+
+			boolean valid = false;
+			if (expectedAttestation != null && attestationMessage != null && attestationMessage.startsWith("ATTEST ")) {
+				String received = attestationMessage.substring("ATTEST ".length()).trim();
+				valid = expectedAttestation.equals(received);
+			}
+
+			if (valid) {
+				outStream.writeObject("ATTEST OK");
+				outStream.flush();
+				return true;
+			}
+
+			outStream.writeObject("ATTEST FAILED");
+			outStream.flush();
+			return false;
+		}
+
+		private String authenticateClient(ObjectInputStream inStream, ObjectOutputStream outStream) throws IOException {
+			String user;
+			String passwd;
+
+			try {
+				user = (String) inStream.readObject();
+				passwd = (String) inStream.readObject();
+				System.out.println("Utilizador: " + user + "; Password: " + passwd);
+			} catch (ClassNotFoundException e1) {
+				System.err.println("Erro a ler credenciais do cliente: " + e1.getMessage());
+				return null;
+			}
+
+			int authenticated = clientInFile(user, passwd);
+			if (user != null && !user.isEmpty() && authenticated >= 0) {
+				if (authenticated == 1) {
+					outStream.writeObject("OK-NEW-USER");
+				} else {
+					outStream.writeObject("OK-USER");
+				}
+				outStream.flush();
+				return user;
+			}
+
+			outStream.writeObject("WRONG-PWD");
+			outStream.flush();
+
+			try {
+				passwd = (String) inStream.readObject();
+				System.out.println("Password recebido: " + passwd);
+				authenticated = clientInFile(user, passwd);
+				if (authenticated >= 0) {
+					outStream.writeObject("OK-USER");
+					outStream.flush();
+					return user;
+				}
+			} catch (ClassNotFoundException e1) {
+				System.err.println("Erro a ler nova password do cliente: " + e1.getMessage());
+			}
+
+			return null;
+		}
+
 		@Override
 		public void run(){
 			try {
 				ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
 				ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
 
-				String user = null;
-				String passwd = null;
-			
-				try {
-					user = (String)inStream.readObject();
-					passwd = (String)inStream.readObject();
-					System.out.println("Utilizador: " + user + "; Password: " + passwd);
-				}catch (ClassNotFoundException e1) {
-					e1.printStackTrace();
+				if (!attestClient(inStream, outStream)) {
+					outStream.close();
+					inStream.close();
+					socket.close();
+					return;
 				}
-			 
-				int authenticated = authenticateClient(user, passwd);
-				if (user != null && !user.isEmpty() && authenticated >= 0) {
-					if(authenticated == 1){
-						outStream.writeObject("OK-NEW-USER");
-					}
-					else
-						outStream.writeObject("OK-USER");
-					outStream.flush();
 
-				}
-				else {
-					outStream.writeObject("WRONG-PWD");
-
-					try {
-						passwd = (String)inStream.readObject();
-						System.out.println("Password recebido: " + passwd);
-						authenticated = authenticateClient(user, passwd);
-						if (authenticated >= 0){
-							outStream.writeObject("OK-USER");
-							outStream.flush();
-						}
-						
-					}catch (ClassNotFoundException e1) {
-						e1.printStackTrace();
-					}
-					outStream.flush();
+				String user = authenticateClient(inStream, outStream);
+				if (user == null || user.isEmpty()) {
+					outStream.close();
+					inStream.close();
+					socket.close();
+					return;
 				}
 
 				// Command loop to handle main.client commands

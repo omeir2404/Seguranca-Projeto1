@@ -1,6 +1,7 @@
 package main.client;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
@@ -148,8 +149,24 @@ public class SpertaClient {
         }
     }
 
-    private void attesation(){
-        
+    private boolean attestation(ObjectOutputStream out, ObjectInputStream in) throws IOException, ClassNotFoundException {
+        long size;
+        try (InputStream is = SpertaClient.class.getResourceAsStream("SpertaClient.class")) {
+            if (is == null) throw new IOException("Could not load SpertaClient.class resource for attestation");
+            size = is.readAllBytes().length;
+        }
+        String attestMsg = "ATTEST SpertaClient:" + size;
+        out.writeObject(attestMsg);
+        out.flush();
+
+        String response = (String) in.readObject();
+        if (response.equals("ATTEST OK")) {
+            System.out.println("ATTESTATION OK");
+            return true;
+        } else {
+            System.out.println("ATTESTATION FAILED");
+            return false;
+        }
     }
 
     public void run(String host, int port, String userId, String password) {
@@ -161,7 +178,7 @@ public class SpertaClient {
             out.flush();
             
 
-            if (authenticate(out, in, sc, userId, password)) {
+            if (attestation(out, in) && authenticate(out, in, sc, userId, password)) {
                 commandLoop(out, in, sc);
             }
         } catch (IOException | ClassNotFoundException e) {

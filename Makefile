@@ -34,7 +34,7 @@ server: compile
 	$(JAVA) -cp $(BIN_DIR) $(SERVER_CLASS) $(SERVER_ARGS)
 
 client: compile
-	@$(JAVA) -cp $(BIN_DIR) $(CLIENT_CLASS) $(CLIENT_ARGS)
+	$(JAVA) -cp $(BIN_DIR) $(CLIENT_CLASS) $(CLIENT_ARGS)
 
 wrongclient: compile
 	@$(JAVA) -cp $(BIN_DIR) $(CLIENT_CLASS) $(CLIENT_WRONG_ARGS)
@@ -50,4 +50,4 @@ re: clean compile
 
 clean:
 	@rm -rf $(BIN_DIR)
-	@rm -rf *.class
+	@rm -rf *.class */*.class */*/*.class

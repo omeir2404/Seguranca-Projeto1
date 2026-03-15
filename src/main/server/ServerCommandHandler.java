@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.Map;
 
 public class ServerCommandHandler {
+
+    private static final String HOUSES_FILE = "extras/Houses.txt";
     
     private Map<String, String> users;
     private Map<String, String> houses;
@@ -104,8 +106,11 @@ public class ServerCommandHandler {
             if (permissionsMap == null || !permissionsMap.containsKey(user)) {
                 return "NOPERM";
             }
+        }
+        devices.put(device, value);
+        return "OK";
 
-    }}
+    }
 
     //Método RT (Obtém ficheiro de texto)
 
@@ -114,9 +119,9 @@ public class ServerCommandHandler {
         // verify permissions of user for each section of the house add if yes append to the file
 
         List<String> lines = new ArrayList<>();
-        Path filePath = Paths.get(SpertaServer.HOUSES_FILE);
-        File file = new File(SpertaServer.HOUSES_FILE);
-        if (!file.exists()) {
+        Path filePath = Paths.get(HOUSES_FILE);
+        File file = new File(HOUSES_FILE);
+        if (file.exists()) {
             try {
             Files.lines(filePath).map(String::trim).filter(line -> !line.isEmpty() && line.contains(house)).forEach(lines::add);
 

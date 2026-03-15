@@ -22,12 +22,12 @@ public class SpertaServer extends Thread{
 	private Socket clientSocket;
 	private static Map<String, String> Users;
 	private static Map<String, String> Houses;
-	private static Map<String, Map<String, String>> permissions;
-	private static Map<String, Map<String, Integer>> device;
-	private static Map<String, Map<String, Integer>> deviceState;
+	private static Map<String, Map<String, String>> Permissions;
+	private static Map<String, Map<String, Integer>> Device;
+	private static Map<String, Map<String, Integer>> DeviceState;
 
 	private static String USERS_FILE = "extras/Users.txt";
-	static String HOUSES_FILE = "extras/Houses.txt";
+	private static String HOUSES_FILE = "extras/Houses.txt";
 	private static String PERMISSIONS_FILE = "extras/Permissions.txt";
 	private static String LOGS_DIR = "logs/";
 	private static String ATTESTATION_FILE = "extras/attestation.txt";
@@ -52,7 +52,7 @@ public class SpertaServer extends Thread{
 		ATTESTATION_FILE = projectRoot.resolve("extras").resolve("attestation.txt").toString();
 	}
 
-    private static int validateInput(String[] args){
+    private static int validateInput( String[] args){
 		int port = 0;
 		if (args.length > 1 || args.length < 0){
 			System.out.println("Input Inválido: SpertaServer [port]");
@@ -79,9 +79,9 @@ public class SpertaServer extends Thread{
 	public static void initialize_server_vars(){
 		Users = new HashMap<>();
 		Houses = new HashMap<>();
-		permissions = new HashMap<>();
-		device = new HashMap<>();
-		deviceState = new HashMap<>();
+		Permissions = new HashMap<>();
+		Device = new HashMap<>();
+		DeviceState = new HashMap<>();
 
 
 		try (BufferedReader reader = new BufferedReader(new FileReader(USERS_FILE))) {
@@ -127,6 +127,7 @@ public class SpertaServer extends Thread{
     //FALTA
     public static void main(String[] args){
 		int port = validateInput(args);
+		initializeFilePaths();
 		initialize_server_vars();
 
 		if (port ==0)
@@ -182,11 +183,11 @@ public class SpertaServer extends Thread{
 		
     	ClientHandler(Socket sock) {
 			this.socket = sock;
-			this.commandHandler = new ServerCommandHandler(Users, Houses, permissions, device, deviceState);
+			this.commandHandler = new ServerCommandHandler(Users, Houses, Permissions, Device, DeviceState);
 			System.out.println("Thread do servidor criada para cada cliente.");
     	}
 
-		private int authenticateClient(String user, String pass) {
+		private int clientInFile(String user, String pass) {
 			int correct = -1;
 			if (user == null || pass == null){
 				return -1;

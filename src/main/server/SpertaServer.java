@@ -27,7 +27,7 @@ public class SpertaServer extends Thread{
 	private static Map<String, Map<String, Integer>> deviceState;
 
 	private static String USERS_FILE = "extras/Users.txt";
-	private static String HOUSES_FILE = "extras/Houses.txt";
+	static String HOUSES_FILE = "extras/Houses.txt";
 	private static String PERMISSIONS_FILE = "extras/Permissions.txt";
 	private static String LOGS_DIR = "logs/";
 	private static String ATTESTATION_FILE = "extras/attestation.txt";
@@ -182,7 +182,7 @@ public class SpertaServer extends Thread{
 		
     	ClientHandler(Socket sock) {
 			this.socket = sock;
-			this.commandHandler = new ServerCommandHandler(Users, Houses, Permissions, Device, DeviceState);
+			this.commandHandler = new ServerCommandHandler(Users, Houses, permissions, device, deviceState);
 			System.out.println("Thread do servidor criada para cada cliente.");
     	}
 

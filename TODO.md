@@ -75,6 +75,7 @@
 - [ ] Maintain section-counter file(s).
 
 ## Robustness and Error Handling
+- [ ] Handle multiple simultaneous TCP clients. 
 - [ ] Handle `EOFException` and broken sockets cleanly.
 - [ ] Prevent one failed request from terminating main.client thread.
 - [ ] Validate integer parsing and command arity safely.

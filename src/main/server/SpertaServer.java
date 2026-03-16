@@ -144,6 +144,10 @@ public class SpertaServer extends Thread{
 		if (port ==0)
 			port = 22345;
 		SpertaServer server = new SpertaServer();
+		Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+			System.out.println("\nCTRL+C detetado. A fechar o servidor...");
+			server.closeServer();
+		}));
     	server.startServer(port);
     }
 
@@ -303,9 +307,6 @@ public class SpertaServer extends Thread{
 
 		@Override
 		public void run(){
-			Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            System.out.println("\nCTRL+C detetado. A fechar o cliente...");
-        	}));	
 			try {
 				ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
 				ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());

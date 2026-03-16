@@ -2,12 +2,9 @@ package main.server;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
-import java.io.EOFException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Path;
@@ -19,7 +16,6 @@ public class SpertaServer extends Thread{
     
     private ServerSocket serverSocket;
     private boolean running  = true;
-	private Socket clientSocket;
 	private static Map<String, String> users;
 	private static Map<String, String> houses;
 	private static Map<String, Map<String, String>> permissions;
@@ -31,6 +27,8 @@ public class SpertaServer extends Thread{
 	private static String PERMISSIONS_FILE = "extras/Permissions.txt";
 	private static String LOGS_DIR = "logs/";
 	private static String ATTESTATION_FILE = "extras/attestation.txt";
+
+
 
 	private static void initializeFilePaths() {
 		Path current = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize();
@@ -164,7 +162,7 @@ public class SpertaServer extends Thread{
 
         while(running){
             try{
-				clientSocket = serverSocket.accept();
+				Socket clientSocket = serverSocket.accept();
                 System.out.println("Nova conexão de: " + clientSocket.getInetAddress().getHostAddress());
 				ClientHandler clientHandler = new ClientHandler(clientSocket);
 				clientHandler.start();
@@ -195,11 +193,18 @@ public class SpertaServer extends Thread{
 	class ClientHandler extends Thread{
     	private Socket socket;
 		private ServerCommandHandler commandHandler;
+		private ServerNetwork network;
 		
     	ClientHandler(Socket sock) {
 			this.socket = sock;
-			this.commandHandler = new ServerCommandHandler(users, houses, permissions, device, deviceState);
-			System.out.println("Thread do servidor criada para cada cliente.");
+			try{
+				this.network = new ServerNetwork(sock);
+				this.commandHandler = new ServerCommandHandler(users, houses, permissions, device, deviceState, network);
+				System.out.println("Thread do servidor criada para cliente.");
+			} catch (Exception e){
+				System.out.println("Erro ao criar thread do servidor");
+				e.printStackTrace();
+			}
     	}
 
 		private int clientInFile(String user, String pass) {
@@ -222,18 +227,11 @@ public class SpertaServer extends Thread{
 
 		}
 
-		private boolean attestClient(ObjectInputStream inStream, ObjectOutputStream outStream) throws IOException {
+		private boolean attestClient() throws IOException {
 			String attestationMessage;
-			try {
-				attestationMessage = (String) inStream.readObject();
-			} catch (ClassNotFoundException e) {
-				System.err.println("Erro a ler atestação do cliente: " + e.getMessage());
-				outStream.writeObject("ATTEST FAILED");
-				outStream.flush();
-				return false;
-			}
+            attestationMessage = (String) network.receive();
 
-			String expectedAttestation = null;
+            String expectedAttestation = null;
 			try (BufferedReader reader = new BufferedReader(new FileReader(ATTESTATION_FILE))) {
 				String line;
 				while ((line = reader.readLine()) != null) {
@@ -252,104 +250,74 @@ public class SpertaServer extends Thread{
 			}
 
 			if (valid) {
-				outStream.writeObject("ATTEST OK");
-				outStream.flush();
+				network.send("ATTEST OK");
 				return true;
 			}
 
-			outStream.writeObject("ATTEST FAILED");
-			outStream.flush();
+			network.send("ATTEST FAILED");
 			return false;
 		}
 
-		private String authenticateClient(ObjectInputStream inStream, ObjectOutputStream outStream) throws IOException {
+		private String authenticateClient() throws IOException {
 			String user;
 			String passwd;
 
-			try {
-				user = (String) inStream.readObject();
-				passwd = (String) inStream.readObject();
-				System.out.println("Utilizador: " + user + "; Password: " + passwd);
-			} catch (ClassNotFoundException e1) {
-				System.err.println("Erro a ler credenciais do cliente: " + e1.getMessage());
-				return null;
-			}
+            user = (String) network.receive();
+            passwd = (String) network.receive();
+            System.out.println("Utilizador: " + user + "; Password: " + passwd);
 
-			int authenticated = clientInFile(user, passwd);
+            int authenticated = clientInFile(user, passwd);
 			if (user != null && !user.isEmpty() && authenticated >= 0) {
 				if (authenticated == 1) {
-					outStream.writeObject("OK-NEW-USER");
+					network.send("OK-NEW-USER");
 				} else {
-					outStream.writeObject("OK-USER");
+					network.send("OK-USER");
 				}
-				outStream.flush();
 				return user;
 			}
 
-			outStream.writeObject("WRONG-PWD");
-			outStream.flush();
+			network.send("WRONG-PWD");
 
-			try {
-				passwd = (String) inStream.readObject();
-				System.out.println("Password recebido: " + passwd);
-				authenticated = clientInFile(user, passwd);
-				if (authenticated >= 0) {
-					outStream.writeObject("OK-USER");
-					outStream.flush();
-					return user;
-				}
-			} catch (ClassNotFoundException e1) {
-				System.err.println("Erro a ler nova password do cliente: " + e1.getMessage());
-			}
+            passwd = (String) network.receive();
+            System.out.println("Password recebido: " + passwd);
+            authenticated = clientInFile(user, passwd);
+            if (authenticated >= 0) {
+                network.send("OK-USER");
+                return user;
+            }
 
-			return null;
+            return null;
 		}
 
 		@Override
 		public void run(){
 			try {
-				ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
-				ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
 
-				if (!attestClient(inStream, outStream)) {
-					outStream.close();
-					inStream.close();
+				if (!attestClient()) {
+					network.close();
 					socket.close();
 					return;
 				}
 
-				String user = authenticateClient(inStream, outStream);
+				String user = authenticateClient();
 				if (user == null || user.isEmpty()) {
-					outStream.close();
-					inStream.close();
+					network.close();
 					socket.close();
 					return;
 				}
 
 				// Command loop to handle main.client commands
-				try {
-					boolean connected = true;
-					while (connected) {
-						try {
-							// Object command = inStream.readObject();
-							String cmdStr =  (String) inStream.readObject();
-							System.out.println("Comando de " + user + ": " + cmdStr);
-							
-							String response = commandHandler.handleCommand(cmdStr, user);
-							outStream.writeObject(response);
-							outStream.flush();
-						} catch (EOFException e) {
-							// Client disconnected
-							connected = false;
-							System.out.println("Cliente " + user + " desconectado");
-						}
-					}
-				} catch (ClassNotFoundException e) {
-					e.printStackTrace();
+                boolean connected = true;
+                while (connected) {
+					String cmdStr =  (String) network.receive();
+					if (cmdStr == null) break;
+					System.out.println("Comando de " + user + ": " + cmdStr);
+
+					String response = commandHandler.handleCommand(cmdStr, user);
+					network.send(response);
 				}
 
-				outStream.close();
-				inStream.close();
+                network.close();
 				socket.close();
 
 			} catch (IOException e) {

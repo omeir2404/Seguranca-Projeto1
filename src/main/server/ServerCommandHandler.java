@@ -28,9 +28,9 @@ public class ServerCommandHandler {
     private static String HOUSE_AUDIT_LOG = "logs/houses.log";
     private static String LOG_DIR= "logs/";
     private static final DateTimeFormatter TS_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+    private static ServerNetwork SERVER_NETWORK;
 
-
-    public ServerCommandHandler(Map<String, String> users, Map<String, String> houses, Map<String, Map<String, String>> permissions, Map<String, Map<String, Integer>> device, Map<String, Map<String, Integer>> deviceState) {
+    public ServerCommandHandler(Map<String, String> users, Map<String, String> houses, Map<String, Map<String, String>> permissions, Map<String, Map<String, Integer>> device, Map<String, Map<String, Integer>> deviceState, ServerNetwork serverNetwork) {
         Path current = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize();
 		Path projectRoot = current;
         this.users = users;
@@ -43,6 +43,9 @@ public class ServerCommandHandler {
         HOUSE_METADATA_FILE = projectRoot.resolve("extras").resolve("HouseMetadata.txt").toString();
         COUNTERS_FILE = projectRoot.resolve("extras").resolve("SectionCounters.txt").toString();
         HOUSE_AUDIT_LOG = projectRoot.resolve("logs").resolve("houses.log").toString();
+        this.SERVER_NETWORK = serverNetwork;
+
+    }
 
     /**
      * makes the logs for a single device, if the file doesnt exist yet it is created with a header `time; command `
@@ -217,13 +220,8 @@ public class ServerCommandHandler {
         }
 
         String sectionLetter = String.valueOf(Character.toUpperCase(section.charAt(0)));
-        
-        Map<String, Integer> devices = deviceState.get(house);
 
-        if (devices == null) {
-            devices = new HashMap<>();
-            deviceState.put(house, devices);
-        }
+        Map<String, Integer> devices = deviceState.computeIfAbsent(house, k -> new HashMap<>());
 
         int count = 0;
         for (String dev : devices.keySet()) {
@@ -284,7 +282,15 @@ public class ServerCommandHandler {
 
     //Método RT (Obtém ficheiro de texto)
 
+    public static void RT(String house, String user){
+
+    }
+
     //Método RH (Obter histórico)
+
+    public static void RH(String house, String user, String device){
+
+    }
 
 
     public String handleCommand(String cmd, String user) {

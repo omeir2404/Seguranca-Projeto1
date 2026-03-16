@@ -25,7 +25,7 @@
 - [x] Implement command input loop until `CTRL+C`.
 - [ ] Send each command request to main.server and print reply.
 - [ ] Validate malformed input and show user-friendly errors.
-3
+
 ## Command: CREATE
 - [x] Implement `CREATE <hm>` on main.server.
 - [x] Return `OK` when home is created.
@@ -83,6 +83,7 @@
 - [ ] Handle `EOFException` and broken sockets cleanly.
 - [ ] Prevent one failed request from terminating main.client thread.
 - [ ] Validate integer parsing and command arity safely.
+- [ ] Cada dispositivo tem um ficheiro de log, no formato csv, o qual contém o seu histórico de funcionamento, ou seja, regista todos os comandos de operação (ligado, ligado com temporização ou desligado) do dispositivo, incluindo a data e hora da sua ocorrência
 
 ## Build, Package, and Delivery
 - [ ] Build runnable main.client and main.server JARs.

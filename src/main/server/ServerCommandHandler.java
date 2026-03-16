@@ -1,17 +1,9 @@
 package main.server;
 
-import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class ServerCommandHandler {
-
-    private static final String HOUSES_FILE = "extras/Houses.txt";
     
     private Map<String, String> users;
     private Map<String, String> houses;
@@ -106,33 +98,18 @@ public class ServerCommandHandler {
             if (permissionsMap == null || !permissionsMap.containsKey(user)) {
                 return "NOPERM";
             }
+
+            String section = permissionsMap.get(user);
+            if (!section.equalsIgnoreCase("all") && !device.startsWith(section)) {
+                return "NOPERM";
+            }
         }
+
         devices.put(device, value);
         return "OK";
-
     }
 
     //Método RT (Obtém ficheiro de texto)
-
-    public void RT(String house, String user, ServerNetwork serverNetwork){
-
-        // verify permissions of user for each section of the house add if yes append to the file
-
-        List<String> lines = new ArrayList<>();
-        Path filePath = Paths.get(HOUSES_FILE);
-        File file = new File(HOUSES_FILE);
-        if (file.exists()) {
-            try {
-            Files.lines(filePath).map(String::trim).filter(line -> !line.isEmpty() && line.contains(house)).forEach(lines::add);
-
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-        System.out.println("TODO");
-        // get all occurrences of the house in the house file and add return them as a .txt file
-
-    }
 
     //Método RH (Obter histórico)
 
@@ -172,7 +149,7 @@ public class ServerCommandHandler {
             String house = parts[1];
             String section = parts[2];
             return registerDevice(user, house, section);
-
+        
         //Comando EC
         }else if (comando.equals("EC")) {
             if(parts.length != 4){
@@ -188,15 +165,4 @@ public class ServerCommandHandler {
 
         return "ERRO: Comando desconhecido: " + comando;
     }
-
-    private boolean checkPermissions(String house, String user, String section) {
-
-        if (houses.containsKey(house) && houses.get(house).equals(user)) {
-            Map<String, String> housePermissions = permissions.get(house);
-            return housePermissions.containsKey(user) && housePermissions.get(user).equals(section);
-        }
-
-        return false;
-    }
-
 }

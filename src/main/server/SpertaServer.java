@@ -52,7 +52,7 @@ public class SpertaServer extends Thread{
 		ATTESTATION_FILE = projectRoot.resolve("extras").resolve("attestation.txt").toString();
 	}
 
-    private static int validateInput( String[] args){
+    private static int validateInput(@NotNull String[] args){
 		int port = 0;
 		if (args.length > 1 || args.length < 0){
 			System.out.println("Input Inválido: SpertaServer [port]");

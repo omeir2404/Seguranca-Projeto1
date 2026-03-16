@@ -52,7 +52,7 @@
 - [ ] Enforce user permissions before changing device state.
 - [x] Return one of: `OK`, `NOK`, `NOHM`, `NOD`, `NOPERM`.
 - [ ] Persist latest state per device.
-- [ ] Append timestamped rows to per-device `.csv` history.
+- [x] Append timestamped rows to per-device `.csv` history.
 
 ## Command: RT
 - [ ] Implement `RT <hm>`.

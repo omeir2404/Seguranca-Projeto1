@@ -168,7 +168,10 @@ public class SpertaClient {
             network.closeClientNetwork();
         }));
         try {
-            if (attestation() && authenticate(sc, userId, password)) {
+            if(!attestation()){
+                System.exit(-1);
+            }
+            if (authenticate(sc, userId, password)) {
                 commandLoop(sc);
             }
             

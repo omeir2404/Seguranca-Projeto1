@@ -1,5 +1,10 @@
 package main.server;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -11,12 +16,32 @@ public class ServerCommandHandler {
     private Map<String, Map<String, Integer>> device;
     private Map<String, Map<String, Integer>> deviceState;
 
+
+    private static String HOUSES_FILE = "extras/Houses.txt";
+	private static String PERMISSIONS_FILE = "extras/Permissions.txt";
+
+
     public ServerCommandHandler(Map<String, String> users, Map<String, String> houses, Map<String, Map<String, String>> permissions, Map<String, Map<String, Integer>> device, Map<String, Map<String, Integer>> deviceState) {
+        Path current = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize();
+		Path projectRoot = current;
         this.users = users;
         this.houses = houses;
         this.permissions = permissions;
         this.device = device;
         this.deviceState = deviceState;
+		PERMISSIONS_FILE = projectRoot.resolve("extras").resolve("Permissions.txt").toString();
+    	HOUSES_FILE = projectRoot.resolve("extras").resolve("Houses.txt").toString();
+
+
+    }
+
+    private void addHouseToFile(String House, String User){
+		try (BufferedWriter writer = new BufferedWriter(new FileWriter(HOUSES_FILE, true))) {
+			writer.newLine();
+			writer.write(House + ":" + User);
+		} catch (IOException e) {
+			System.err.println("Erro ao escrever em " + HOUSES_FILE + ": " + e.getMessage());
+		}
     }
 
     //Método CREATE 
@@ -25,6 +50,7 @@ public class ServerCommandHandler {
             return "NOK";
         }
         houses.put(house, user);
+        addHouseToFile(house, user);
         return "OK";
     }
 
@@ -40,11 +66,23 @@ public class ServerCommandHandler {
         if (!houses.get(house).equals(user)) {
             return "NOPERM";
         }
-        
+
         Map<String, String> housePermissions = permissions.get(house);
-        housePermissions.put(userAdd, section);
+        if (housePermissions == null) {
+            housePermissions = new HashMap<>();
+            permissions.put(house, housePermissions);
+        }
+
+        boolean access = section.equalsIgnoreCase("all");
+        if (access) {
+            housePermissions.put(userAdd, "all");
+        } else {
+            housePermissions.put(userAdd, section);
+        }
+        
         return "OK";
     }
+
 
     //Método RD (Registar)
     private String registerDevice(String user, String house, String section) {
@@ -54,6 +92,8 @@ public class ServerCommandHandler {
         if (!houses.get(house).equals(user)) {
             return "NOPERM";
         }
+
+        String sectionLetter = String.valueOf(Character.toUpperCase(section.charAt(0)));
         
         Map<String, Integer> devices = deviceState.get(house);
 
@@ -64,12 +104,12 @@ public class ServerCommandHandler {
 
         int count = 0;
         for (String dev : devices.keySet()) {
-            if (dev.startsWith(section)) {
+            if (!dev.isEmpty() && Character.toUpperCase(dev.charAt(0)) == sectionLetter.charAt(0)) {
                 count++;
             }
         }
 
-        String deviceName = section + (count + 1);
+        String deviceName = sectionLetter + (count + 1);
         devices.put(deviceName, 0);
         return "OK";
     }
@@ -93,14 +133,22 @@ public class ServerCommandHandler {
             return "NOD";
         }
         String dono  = houses.get(house);
-        if (!dono.equals(user)) {
+        boolean isDono = dono.equals(user);
+        if (!isDono) {
             Map<String, String> permissionsMap = permissions.get(house);
-            if (permissionsMap == null || !permissionsMap.containsKey(user)) {
+            boolean isPermission = permissionsMap == null || !permissionsMap.containsKey(user);
+            if (isPermission) {
                 return "NOPERM";
             }
 
             String section = permissionsMap.get(user);
-            if (!section.equalsIgnoreCase("all") && !device.startsWith(section)) {
+            if (section == null) {
+                return "NOPERM";
+            }
+
+            boolean fullAccess = section.equalsIgnoreCase("all");
+            boolean sectionAccess = device.regionMatches(true, 0, section, 0, section.length());
+            if (!fullAccess && !sectionAccess) {
                 return "NOPERM";
             }
         }

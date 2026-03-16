@@ -11,10 +11,10 @@
 - [x] Ensure graceful disconnect handling without crashing main.server.
 
 ## Attestation and Authentication
-- [ ] Implement main.client attestation before authentication.
-- [ ] Client sends `SpertaClient` size metadata.
-- [ ] Server validates against local reference file (`SpertaClient:<size>`).
-- [ ] Return attestation result and print exactly `ATTESTATION OK` / `ATTESTATION FAILED` on main.client.
+- [x] Implement main.client attestation before authentication.
+- [x] Client sends `SpertaClient` size metadata.
+- [x] Server validates against local reference file (`SpertaClient:<size>`).
+- [x] Return attestation result and print exactly `ATTESTATION OK` / `ATTESTATION FAILED` on main.client.
 - [x] Implement auth outcomes: `WRONG-PWD`, `OK-NEW-USER`, `OK-USER`.
 - [x] On `WRONG-PWD`, allow main.client password retry.
 - [x] Persist users and passwords on main.server text file.
@@ -34,15 +34,15 @@
 
 ## Command: ADD
 - [x] Implement `ADD <user1> <hm> <s>`.
-- [ ] Allow section permission by section letter or full house with `all`.
+- [x] Allow section permission by section letter or full house with `all`.
 - [x] Return one of: `OK`, `NOPERM`, `NOHM`, `NOUSER`.
 - [ ] Persist permission updates.
 
 ## Command: RD
 - [x] Implement `RD <hm> <s>`.
-- [ ] Allow only owner to register devices.
+- [x] Allow only owner to register devices.
 - [x] Maintain per-section device counters starting at `1`.
-- [ ] Generate device IDs from section letter + counter.
+- [x] Generate device IDs from section letter + counter.
 - [x] Return one of: `OK`, `NOPERM`, `NOHM`.
 - [ ] Persist counters and devices.
 

@@ -22,7 +22,7 @@
 
 ## Client CLI and Protocol Loop
 - [x] Show command menu after successful authentication.
-- [ ] Implement command input loop until `CTRL+C`.
+- [x] Implement command input loop until `CTRL+C`.
 - [ ] Send each command request to main.server and print reply.
 - [ ] Validate malformed input and show user-friendly errors.
 3
@@ -74,7 +74,12 @@
 - [ ] Maintain per-device `.csv` logs.
 - [ ] Maintain section-counter file(s).
 
+## EXTRAS
+- [ ] Show houses comand -"ls"
+- [ ] 
+
 ## Robustness and Error Handling
+- [ ] Handle multiple simultaneous TCP clients. 
 - [ ] Handle `EOFException` and broken sockets cleanly.
 - [ ] Prevent one failed request from terminating main.client thread.
 - [ ] Validate integer parsing and command arity safely.

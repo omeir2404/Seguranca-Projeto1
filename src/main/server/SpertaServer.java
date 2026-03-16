@@ -52,6 +52,17 @@ public class SpertaServer extends Thread{
 		ATTESTATION_FILE = projectRoot.resolve("extras").resolve("attestation.txt").toString();
 	}
 
+	//     private boolean checkPermissions(String house, String user, String section) {
+
+    //     if (houses.containsKey(house) && houses.get(house).equals(user)) {
+    //         Map<String, String> housePermissions = permissions.get(house);
+    //         return housePermissions.containsKey(user) && housePermissions.get(user).equals(section);
+    //     }
+
+    //     return false;
+    // }
+
+
     private static int validateInput(@NotNull String[] args){
 		int port = 0;
 		if (args.length > 1 || args.length < 0){
@@ -292,6 +303,9 @@ public class SpertaServer extends Thread{
 
 		@Override
 		public void run(){
+			Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            System.out.println("\nCTRL+C detetado. A fechar o cliente...");
+        	}));	
 			try {
 				ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
 				ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());

@@ -1,11 +1,15 @@
 package main.server;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class ServerCommandHandler {
@@ -19,6 +23,10 @@ public class ServerCommandHandler {
 
     private static String HOUSES_FILE = "extras/Houses.txt";
 	private static String PERMISSIONS_FILE = "extras/Permissions.txt";
+    private static String HOUSE_METADATA_FILE = "extras/HouseMetadata.txt";
+    private static String COUNTERS_FILE = "extras/SectionCounters.txt";
+    private static String HOUSE_AUDIT_LOG = "logs/houses.log";
+    private static final DateTimeFormatter TS_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
 
     public ServerCommandHandler(Map<String, String> users, Map<String, String> houses, Map<String, Map<String, String>> permissions, Map<String, Map<String, Integer>> device, Map<String, Map<String, Integer>> deviceState) {
@@ -31,17 +39,91 @@ public class ServerCommandHandler {
         this.deviceState = deviceState;
 		PERMISSIONS_FILE = projectRoot.resolve("extras").resolve("Permissions.txt").toString();
     	HOUSES_FILE = projectRoot.resolve("extras").resolve("Houses.txt").toString();
+        HOUSE_METADATA_FILE = projectRoot.resolve("extras").resolve("HouseMetadata.txt").toString();
+        COUNTERS_FILE = projectRoot.resolve("extras").resolve("SectionCounters.txt").toString();
+        HOUSE_AUDIT_LOG = projectRoot.resolve("logs").resolve("houses.log").toString();
 
 
     }
 
-    private void addHouseToFile(String House, String User){
-		try (BufferedWriter writer = new BufferedWriter(new FileWriter(HOUSES_FILE, true))) {
-			writer.newLine();
-			writer.write(House + ":" + User);
-		} catch (IOException e) {
-			System.err.println("Erro ao escrever em " + HOUSES_FILE + ": " + e.getMessage());
-		}
+    private void ensureParentDir(String filePath) throws IOException {
+        Path path = Paths.get(filePath).toAbsolutePath().normalize();
+        Path parent = path.getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
+        }
+    }
+
+    private void ensureFileHeader(String filePath, String header) throws IOException {
+        ensureParentDir(filePath);
+        Path path = Paths.get(filePath).toAbsolutePath().normalize();
+        if (!Files.exists(path) || Files.size(path) == 0L) {
+            Files.writeString(path, header + System.lineSeparator(), StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        }
+    }
+
+    private void appendLine(String filePath, String line) throws IOException {
+        ensureParentDir(filePath);
+        Path path = Paths.get(filePath).toAbsolutePath().normalize();
+        if (!Files.exists(path)) {
+            Files.createFile(path);
+        }
+
+        boolean empty = Files.size(path) == 0L;
+        String payload = empty ? line : System.lineSeparator() + line;
+        Files.writeString(path, payload, StandardCharsets.UTF_8, StandardOpenOption.APPEND);
+    }
+
+    private Map<String, Integer> initialSectionCounters() {
+        Map<String, Integer> counters = new LinkedHashMap<>();
+        // Covers sections used in the project text/examples.
+        counters.put("M", 1);
+        counters.put("G", 1);
+        counters.put("L", 1);
+        counters.put("P", 1);
+        counters.put("B", 1);
+        counters.put("E", 1);
+        return counters;
+    }
+
+    private String countersToString(Map<String, Integer> counters) {
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<String, Integer> entry : counters.entrySet()) {
+            if (sb.length() > 0) {
+                sb.append(",");
+            }
+            sb.append(entry.getKey()).append("=").append(entry.getValue());
+        }
+        return sb.toString();
+    }
+
+    private synchronized boolean addHouseToFile(String house, String owner) {
+        String now = LocalDateTime.now().format(TS_FORMAT);
+        Map<String, Integer> counters = initialSectionCounters();
+
+        String houseRecord = house + ":" + owner;
+        String metadataRecord = house + ":createdAt=" + now;
+        String permissionRecord = house + ":" + owner + ":all";
+        String counterRecord = house + ":" + countersToString(counters);
+        String auditRecord = now + " CREATE " + house + " owner=" + owner;
+
+        try {
+            ensureFileHeader(HOUSES_FILE, "House:Owner");
+            ensureFileHeader(PERMISSIONS_FILE, "House:User:Section");
+            ensureFileHeader(HOUSE_METADATA_FILE, "House:Metadata");
+            ensureFileHeader(COUNTERS_FILE, "House:Section=NextCounter");
+
+            appendLine(HOUSES_FILE, houseRecord);
+            appendLine(PERMISSIONS_FILE, permissionRecord);
+            appendLine(HOUSE_METADATA_FILE, metadataRecord);
+            appendLine(COUNTERS_FILE, counterRecord);
+            appendLine(HOUSE_AUDIT_LOG, auditRecord);
+            return true;
+        } catch (IOException e) {
+            System.err.println("Erro ao persistir CREATE da casa " + house + ": " + e.getMessage());
+            return false;
+        }
     }
 
     //Método CREATE 
@@ -50,13 +132,34 @@ public class ServerCommandHandler {
             return "NOK";
         }
         houses.put(house, user);
-        addHouseToFile(house, user);
+        if (!addHouseToFile(house, user)) {
+            houses.remove(house);
+            return "NOK";
+        }
+
+        Map<String, String> housePermissions = permissions.get(house);
+        if (housePermissions == null) {
+            housePermissions = new HashMap<>();
+            permissions.put(house, housePermissions);
+        }
+        housePermissions.put(user, "all");
+
+        if (!deviceState.containsKey(house)) {
+            deviceState.put(house, new HashMap<>());
+        }
         return "OK";
     }
 
     
     //Método ADD
     private String addHouse(String user, String userAdd, String house, String section) {
+        System.out.println("######################CASINHAS############################");
+        for(String h : houses.keySet()){
+            System.out.print("UMA CASA");
+            System.out.println(h);
+        }
+        System.out.println("#######################END CASINHAS#######################");
+
         if (!houses.containsKey(house)) {
             return "NOHM";
         }

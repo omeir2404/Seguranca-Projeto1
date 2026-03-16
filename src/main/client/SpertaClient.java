@@ -171,16 +171,20 @@ public class SpertaClient {
 
     public void run(String host, int port, String userId, String password) {
         Scanner sc = new Scanner(System.in);
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            System.out.println("\nCTRL+C detetado. A fechar o cliente...");
+        }));
 
-        try (Socket clientSocket = new Socket(host, port);
-             ObjectOutputStream out = new ObjectOutputStream(clientSocket.getOutputStream());
-             ObjectInputStream in = new ObjectInputStream(clientSocket.getInputStream())) {
-            out.flush();
-            
+        try (
+            Socket clientSocket = new Socket(host, port);
+            ObjectOutputStream out = new ObjectOutputStream(clientSocket.getOutputStream());
+            ObjectInputStream in = new ObjectInputStream(clientSocket.getInputStream())) {
+            out.flush();  
 
             if (attestation(out, in) && authenticate(out, in, sc, userId, password)) {
                 commandLoop(out, in, sc);
             }
+            
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }

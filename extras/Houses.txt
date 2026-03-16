@@ -1,2 +1,4 @@
 House:User
 House1:Nexus
+house2:Nexus
+casinha:Nexus

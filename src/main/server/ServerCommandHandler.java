@@ -26,6 +26,7 @@ public class ServerCommandHandler {
     private static String HOUSE_METADATA_FILE = "extras/HouseMetadata.txt";
     private static String COUNTERS_FILE = "extras/SectionCounters.txt";
     private static String HOUSE_AUDIT_LOG = "logs/houses.log";
+    private static String LOG_DIR= "logs/";
     private static final DateTimeFormatter TS_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
 
@@ -43,6 +44,25 @@ public class ServerCommandHandler {
         COUNTERS_FILE = projectRoot.resolve("extras").resolve("SectionCounters.txt").toString();
         HOUSE_AUDIT_LOG = projectRoot.resolve("logs").resolve("houses.log").toString();
 
+    /**
+     * makes the logs for a single device, if the file doesnt exist yet it is created with a header `time; command `
+     *
+      */
+    private void updateDeviceLogs(String command, String house, String device){
+        // the logs should be one per device, all in csv and with a header (time; command (turn on, turn on with timer, turn off))
+        try {
+            Files.createDirectories(Paths.get(LOG_DIR));
+            Path logPath = Paths.get(LOG_DIR, house + "_" + device + ".csv");
+            if (Files.exists(logPath)) {
+                appendLine(logPath.toString(), command + ";" + LocalDateTime.now().format(TS_FORMAT));            }
+            else{
+                appendLine(logPath.toString(), "time; command");
+                appendLine(logPath.toString(), command + ";" + LocalDateTime.now().format(TS_FORMAT));
+            }
+
+        } catch (Exception e){
+            e.printStackTrace();
+        }
 
     }
 
@@ -214,6 +234,8 @@ public class ServerCommandHandler {
 
         String deviceName = sectionLetter + (count + 1);
         devices.put(deviceName, 0);
+        // logging creation of device
+        updateDeviceLogs("RD", house, deviceName);
         return "OK";
     }
 

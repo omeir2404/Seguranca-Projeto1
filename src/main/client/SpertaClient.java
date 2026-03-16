@@ -8,14 +8,10 @@ import java.net.Socket;
 import java.util.Scanner;
 
 public class SpertaClient {
-    private static final String HELP_TEXT =
-            "• CREATE <hm> # Criar casa <hm> - utilizador é Owner \n" +
-            "• ADD <user1> <hm> <s> # Adicionar utilizador <user1> à casa <hm>, seção <s> \n" +
-            "• RD <hm> <s> # Registar um Dispositivo na casa <hm>, na seção <s> \n" +
-            "• EC <hm> <d> <int> # Enviar valor <int> de estado/temporização, do dispositivo <d> da casa <hm>, para o servidor. \n" +
-            "• RT <hm># Receber a informação sobre o último comando (estados/temporizações) enviado a cada dispositivo da casa <hm>, desde que o utilizador tenha permissões. \n" +
-            "• RH <hm> <d># Receber o Histórico (ficheiro de log .csv) de comandos enviados ao dispositivo <d> da casa <hm>, desde que o utilizador tenha permissões. ";
-    
+    private static final String HELP_TEXT = "Comandos disponiveis:\n • CREATE <hm> # Criar casa <hm> - utilizador é Owner \n • ADD <user1> <hm> <s> # Adicionar utilizador <user1> à casa <hm>, seção <s> \n • RD <hm> <s> # Registar um Dispositivo na casa <hm>, na seção <s> \n • EC <hm> <d> <int> # Enviar valor <int> de estado/temporização, do dispositivo <d> da casa <hm>, para o servidor. \n • RT <hm># Receber a informação sobre o último comando (estados/temporizações) enviado a cada dispositivo da casa <hm>, desde que o utilizador tenha permissões. \n • RH <hm> <d># Receber o Histórico (ficheiro de log .csv) de comandos enviados ao dispositivo <d> da casa <hm>, desde que o utilizador tenha permissões.";
+    private static ClientNetwork network;
+
+
     public static class ServerAddress {
         String host;
         int port;
@@ -84,7 +80,9 @@ public class SpertaClient {
         }
 
         SpertaClient client = new SpertaClient();
-        client.run(server.host, server.port, userId, password);
+        network = new ClientNetwork();
+        network.initClientNetwork(server.host, server.port);
+        client.run(userId, password);
     }
 
     private boolean isAuthenticatedResponse(String authResponse) {
@@ -93,22 +91,19 @@ public class SpertaClient {
                 || authResponse.equals("Cliente connectado com sucesso!");
     }
 
-    private boolean authenticate(ObjectOutputStream out, ObjectInputStream in, Scanner sc,
-                                 String userId, String password) throws IOException, ClassNotFoundException {
-        out.writeObject(userId);
-        out.writeObject(password);
-        out.flush();
+    private boolean authenticate(Scanner sc, String userId, String password){
+        network.send(userId);
+        network.send(password);
 
-        String authResponse = (String) in.readObject();
+        String authResponse = (String) network.receive();
         System.out.println("Server: " + authResponse);
 
         if (authResponse.equals("WRONG-PWD")) {
             System.out.print("Escreva aqui a password correta: ");
             password = sc.nextLine();
-            out.writeObject(password);
-            out.flush();
+            network.send(password);
 
-            authResponse = (String) in.readObject();
+            authResponse = (String) network.receive();
             System.out.println("Server: " + authResponse);
         }
 
@@ -127,8 +122,7 @@ public class SpertaClient {
         return false;
     }
 
-    private void commandLoop(ObjectOutputStream out, ObjectInputStream in, Scanner sc)
-            throws IOException, ClassNotFoundException {
+    private void commandLoop(Scanner sc){
         boolean running = true;
 
         while (running) {
@@ -140,26 +134,24 @@ public class SpertaClient {
                 running = false;
                 System.out.println("A desconectar...");
             } else if (!command.trim().isEmpty()) {
-                out.writeObject(command);
-                out.flush();
+                network.send(command);
 
-                Object response = in.readObject();
+                Object response = network.receive();
                 System.out.println(response);
             }
         }
     }
 
-    private boolean attestation(ObjectOutputStream out, ObjectInputStream in) throws IOException, ClassNotFoundException {
+    private boolean attestation() throws IOException{
         long size;
         try (InputStream is = SpertaClient.class.getResourceAsStream("SpertaClient.class")) {
             if (is == null) throw new IOException("Could not load SpertaClient.class resource for attestation");
             size = is.readAllBytes().length;
         }
         String attestMsg = "ATTEST SpertaClient:" + size;
-        out.writeObject(attestMsg);
-        out.flush();
+        network.send(attestMsg);
 
-        String response = (String) in.readObject();
+        String response = (String) network.receive();
         if (response.equals("ATTEST OK")) {
             System.out.println("ATTESTATION OK");
             return true;
@@ -169,23 +161,18 @@ public class SpertaClient {
         }
     }
 
-    public void run(String host, int port, String userId, String password) {
+    public void run(String userId, String password) {
         Scanner sc = new Scanner(System.in);
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             System.out.println("\nCTRL+C detetado. A fechar o cliente...");
+            network.closeClientNetwork();
         }));
-
-        try (
-            Socket clientSocket = new Socket(host, port);
-            ObjectOutputStream out = new ObjectOutputStream(clientSocket.getOutputStream());
-            ObjectInputStream in = new ObjectInputStream(clientSocket.getInputStream())) {
-            out.flush();  
-
-            if (attestation(out, in) && authenticate(out, in, sc, userId, password)) {
-                commandLoop(out, in, sc);
+        try {
+            if (attestation() && authenticate(sc, userId, password)) {
+                commandLoop(sc);
             }
             
-        } catch (IOException | ClassNotFoundException e) {
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }

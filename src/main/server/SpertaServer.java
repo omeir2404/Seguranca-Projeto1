@@ -20,11 +20,11 @@ public class SpertaServer extends Thread{
     private ServerSocket serverSocket;
     private boolean running  = true;
 	private Socket clientSocket;
-	private static Map<String, String> Users;
-	private static Map<String, String> Houses;
-	private static Map<String, Map<String, String>> Permissions;
-	private static Map<String, Map<String, Integer>> Device;
-	private static Map<String, Map<String, Integer>> DeviceState;
+	private static Map<String, String> users;
+	private static Map<String, String> houses;
+	private static Map<String, Map<String, String>> permissions;
+	private static Map<String, Map<String, Integer>> device;
+	private static Map<String, Map<String, Integer>> deviceState;
 
 	private static String USERS_FILE = "extras/Users.txt";
 	private static String HOUSES_FILE = "extras/Houses.txt";
@@ -63,7 +63,7 @@ public class SpertaServer extends Thread{
     // }
 
 
-    private static int validateInput(@NotNull String[] args){
+    private static int validateInput(String[] args){
 		int port = 0;
 		if (args.length > 1 || args.length < 0){
 			System.out.println("Input Inválido: SpertaServer [port]");
@@ -88,11 +88,11 @@ public class SpertaServer extends Thread{
 	}
 
 	public static void initialize_server_vars(){
-		Users = new HashMap<>();
-		Houses = new HashMap<>();
-		Permissions = new HashMap<>();
-		Device = new HashMap<>();
-		DeviceState = new HashMap<>();
+		users = new HashMap<>();
+		houses = new HashMap<>();
+		permissions = new HashMap<>();
+		device = new HashMap<>();
+		deviceState = new HashMap<>();
 
 
 		try (BufferedReader reader = new BufferedReader(new FileReader(USERS_FILE))) {
@@ -115,7 +115,7 @@ public class SpertaServer extends Thread{
 					String user = parts[0].trim();
 					String pass = parts[1].trim();
 					if (!user.isEmpty()) {
-						Users.put(user, pass);
+						users.put(user, pass);
 					}
 				}
 			}
@@ -194,7 +194,7 @@ public class SpertaServer extends Thread{
 		
     	ClientHandler(Socket sock) {
 			this.socket = sock;
-			this.commandHandler = new ServerCommandHandler(Users, Houses, Permissions, Device, DeviceState);
+			this.commandHandler = new ServerCommandHandler(users, houses, permissions, device, deviceState);
 			System.out.println("Thread do servidor criada para cada cliente.");
     	}
 
@@ -204,9 +204,9 @@ public class SpertaServer extends Thread{
 				return -1;
 			}
 
-			String storedPass = Users.get(user);
+			String storedPass = users.get(user);
 			if (storedPass == null){
-				Users.put(user, pass);
+				users.put(user, pass);
 				appendUserToFile(user, pass);
 				return 1;
 			}

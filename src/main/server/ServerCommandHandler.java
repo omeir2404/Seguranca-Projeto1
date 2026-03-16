@@ -1,5 +1,6 @@
 package main.server;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -28,7 +29,7 @@ public class ServerCommandHandler {
     private static String HOUSE_AUDIT_LOG = "logs/houses.log";
     private static String LOG_DIR= "logs/";
     private static final DateTimeFormatter TS_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
-    private static ServerNetwork SERVER_NETWORK;
+    private ServerNetwork serverNetwork;
 
     public ServerCommandHandler(Map<String, String> users, Map<String, String> houses, Map<String, Map<String, String>> permissions, Map<String, Map<String, Integer>> device, Map<String, Map<String, Integer>> deviceState, ServerNetwork serverNetwork) {
         Path current = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize();
@@ -43,7 +44,7 @@ public class ServerCommandHandler {
         HOUSE_METADATA_FILE = projectRoot.resolve("extras").resolve("HouseMetadata.txt").toString();
         COUNTERS_FILE = projectRoot.resolve("extras").resolve("SectionCounters.txt").toString();
         HOUSE_AUDIT_LOG = projectRoot.resolve("logs").resolve("houses.log").toString();
-        this.SERVER_NETWORK = serverNetwork;
+        this.serverNetwork = serverNetwork;
 
     }
 
@@ -178,7 +179,7 @@ public class ServerCommandHandler {
     private String addHouse(String user, String userAdd, String house, String section) {
         System.out.println("######################CASINHAS############################");
         for(String h : houses.keySet()){
-            System.out.print("UMA CASA");
+            System.out.print("UMA CASA: ");
             System.out.println(h);
         }
         System.out.println("#######################END CASINHAS#######################");
@@ -233,7 +234,8 @@ public class ServerCommandHandler {
         String deviceName = sectionLetter + (count + 1);
         devices.put(deviceName, 0);
         // logging creation of device
-        updateDeviceLogs("RD", house, deviceName);
+        // RD <hm> <s>
+        updateDeviceLogs("RD " + house + " " + section, house, deviceName);
         return "OK";
     }
 
@@ -277,19 +279,39 @@ public class ServerCommandHandler {
         }
 
         devices.put(device, value);
+        // EC <hm> <d> <int>
+        updateDeviceLogs("EC " + house + " " + device + " " + value, house, device);
         return "OK";
+    }
+
+    // verify this is implemented correctly with the current implementation of permissions
+    private boolean checkPermissions(String house, String user, String section) {
+        if (houses.containsKey(house) && houses.get(house).equals(user)) {
+            Map<String, String> housePermissions = permissions.get(house);
+            return housePermissions.containsKey(user) && housePermissions.get(user).equals(section);
+        }
+        return false;
     }
 
     //Método RT (Obtém ficheiro de texto)
 
-    public static void RT(String house, String user){
-
+    public void RT(String house, String user) {
     }
 
     //Método RH (Obter histórico)
-
-    public static void RH(String house, String user, String device){
-
+    // TODO needs to send file as well, can't just give a response
+    public String RH(String house, String user, String device) {
+        String section = device.substring(0, 1);
+        if (!checkPermissions(house, user, section)) return "NOPERM";
+        if (!deviceState.containsKey(house)) return "NOHM";
+        if (!deviceState.get(house).containsKey(device)) return "NOD";
+        File logFile = new File(LOG_DIR, house + "_" + device + ".csv");
+        if (!logFile.exists()) {
+            System.out.println("No logs found for device " + device + " in house " + house);
+            return "NODATA";
+        }
+        serverNetwork.sendFile(logFile.toPath());
+        return "OK";
     }
 
 
@@ -338,7 +360,17 @@ public class ServerCommandHandler {
             String device = parts[2];
             String value = parts[3];
             return sendInt(user, house, device, value);
-        }
+
+            //Comando RH
+        } // TODO handle multiple phases of response on RH (send OK, long size, byte stream)
+//        else if (comando.equals("RH")) {
+//            if (parts.length != 3) {
+//                return "ERRO: O correto é: RH <hm> <d>";
+//            }
+//            String house = parts[1];
+//            String device = parts[2];
+//            return RH(house, user, device);
+//        }
 
 
 

@@ -293,9 +293,22 @@ public class ServerCommandHandler {
         return false;
     }
 
-    //Método RT (Obtém ficheiro de texto)
+    //TODO Método RT (Obtém ficheiro de texto)
+    // should be implemented like RH and RH_sendFile
+    /*
+    O comando RT <hm> permite à aplicação cliente obter um ficheiro de texto com os últimos
+    comandos de alteração de estado/temporização gravados no servidor referentes a todos os
+    dispositivos de uma casa <hm>, ou aqueles que o utilizador tem permissão. Assim, o cliente deverá
+    receber uma mensagem OK, depois um número LONG com o tamanho do ficheiro, e em seguida o
+    conteúdo do ficheiro
+     */
+    public String RT(String house, String user) {
 
-    public void RT(String house, String user) {
+        return "OK";
+    }
+
+    public void RT_sendFile(String house, String user) {
+        // send the file resulting from the concatenation of all the devices logs that the user has access to in the given house
     }
 
     //Método RH (Obter histórico)
@@ -310,8 +323,27 @@ public class ServerCommandHandler {
             System.out.println("No logs found for device " + device + " in house " + house);
             return "NODATA";
         }
-        serverNetwork.sendFile(logFile.toPath());
         return "OK";
+    }
+
+    /**
+     * Sends the device log file to the client. Should only be called if the user has permissions to access
+     * the device logs. It should only be called after calling RH and getting a return of "OK"
+     *
+     * @param house  house which the device belongs to
+     * @param device device which log file should be sent
+     * @requires user must have permissions to access the device logs; otherwise the method should not be called
+     */
+    public void RH_sendFile(String house, String device) {
+        // send OK
+        serverNetwork.send("OK");
+        // send file size (in the sendFile function already) and send file bytes
+        File logFile = new File(LOG_DIR, house + "_" + device + ".csv");
+        if (logFile.exists()) { // redundant check, but for safety it's checked again
+            serverNetwork.sendFile(logFile.toPath());
+        } else {
+            System.out.println("No logs found for device " + device + " in house " + house);
+        }
     }
 
 
@@ -350,28 +382,31 @@ public class ServerCommandHandler {
             String house = parts[1];
             String section = parts[2];
             return registerDevice(user, house, section);
-        
-        //Comando EC
+
+            // Comando EC
         }else if (comando.equals("EC")) {
-            if(parts.length != 4){
+            if (parts.length != 4) {
                 return "ERRO: O correto é: EC <hm> <d> <int>";
             }
             String house = parts[1];
             String device = parts[2];
             String value = parts[3];
             return sendInt(user, house, device, value);
+        } // Comando RH phase of: OK, NOPERMS, NOHM, NOD, NODATA (other phases of RH are the responsibility of the caller using the helper function)
+        else if (comando.equals("RH")) {
+            if (parts.length != 3) {
+                return "ERRO: O correto é: RH <hm> <d>";
+            }
+            String house = parts[1];
+            String device = parts[2];
+            return RH(house, user, device);
+        }
+        // TODO Comando RT
+        /*
+        else if (comando.equals("RT")) {
 
-            //Comando RH
-        } // TODO handle multiple phases of response on RH (send OK, long size, byte stream)
-//        else if (comando.equals("RH")) {
-//            if (parts.length != 3) {
-//                return "ERRO: O correto é: RH <hm> <d>";
-//            }
-//            String house = parts[1];
-//            String device = parts[2];
-//            return RH(house, user, device);
-//        }
-
+        }
+         */
 
 
         return "ERRO: Comando desconhecido: " + comando;

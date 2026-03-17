@@ -1,10 +1,6 @@
 package main.server;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Path;
@@ -314,6 +310,18 @@ public class SpertaServer extends Thread{
 					System.out.println("Comando de " + user + ": " + cmdStr);
 
 					String response = commandHandler.handleCommand(cmdStr, user);
+					if (cmdStr.contains("RH")) {
+						switch (response) {
+							case "OK":
+								network.send("OK");
+								// send the file size (long)
+								// send the file as a byte stream
+								break;
+							default:
+								network.send(response);
+						}
+					}
+
 					network.send(response);
 				}
 

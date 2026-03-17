@@ -313,9 +313,7 @@ public class SpertaServer extends Thread{
 					if (cmdStr.contains("RH")) {
 						switch (response) {
 							case "OK":
-								network.send("OK");
-								// send the file size (long)
-								// send the file as a byte stream
+								commandHandler.RH_sendFile(cmdStr, user);
 								break;
 							default:
 								network.send(response);

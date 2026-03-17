@@ -3,15 +3,10 @@ package main.server;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
+import java.nio.file.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 
 public class ServerCommandHandler {
     
@@ -99,6 +94,49 @@ public class ServerCommandHandler {
         Files.writeString(path, payload, StandardCharsets.UTF_8, StandardOpenOption.APPEND);
     }
 
+    private synchronized boolean persistPermissionsSnapshot() {
+        try {
+            ensureParentDir(PERMISSIONS_FILE);
+            Path target = Paths.get(PERMISSIONS_FILE).toAbsolutePath().normalize();
+            Path temp = target.resolveSibling(target.getFileName().toString() + ".tmp");
+
+            StringBuilder content = new StringBuilder("House:User:Section");
+            for (Map.Entry<String, Map<String, String>> houseEntry : permissions.entrySet()) {
+                String house = houseEntry.getKey();
+                Map<String, String> housePermissions = houseEntry.getValue();
+                if (housePermissions == null) {
+                    continue;
+                }
+                for (Map.Entry<String, String> userEntry : housePermissions.entrySet()) {
+                    String normalized = normalizePermissionValue(userEntry.getValue());
+                    if (normalized == null) {
+                        continue;
+                    }
+                    content.append(System.lineSeparator())
+                            .append(house)
+                            .append(":")
+                            .append(userEntry.getKey())
+                            .append(":")
+                            .append(normalized);
+                }
+            }
+
+            Files.writeString(
+                    temp,
+                    content.toString(),
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING,
+                    StandardOpenOption.WRITE
+            );
+            Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            return true;
+        } catch (IOException e) {
+            System.err.println("Erro ao persistir permissoes: " + e.getMessage());
+            return false;
+        }
+    }
+
     private Map<String, Integer> initialSectionCounters() {
         Map<String, Integer> counters = new LinkedHashMap<>();
         // Covers sections used in the project text/examples.
@@ -150,7 +188,109 @@ public class ServerCommandHandler {
         }
     }
 
-    //Método CREATE 
+    private String normalizePermissionValue(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String trimmed = raw.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        if (trimmed.equalsIgnoreCase("all")) {
+            return "all";
+        }
+
+        Set<String> sections = new LinkedHashSet<>();
+        String[] parts = trimmed.split(",");
+        for (String part : parts) {
+            String token = part.trim();
+            if (token.isEmpty()) {
+                continue;
+            }
+            sections.add(String.valueOf(Character.toUpperCase(token.charAt(0))));
+        }
+
+        if (sections.isEmpty()) {
+            return null;
+        }
+        return String.join(",", sections);
+    }
+
+    private String mergePermissions(String current, String incoming) {
+        String normalizedIncoming = normalizePermissionValue(incoming);
+        if (normalizedIncoming == null) {
+            return current;
+        }
+        String normalizedCurrent = normalizePermissionValue(current);
+        if ("all".equalsIgnoreCase(normalizedCurrent) || "all".equalsIgnoreCase(normalizedIncoming)) {
+            return "all";
+        }
+        if (normalizedCurrent == null) {
+            return normalizedIncoming;
+        }
+
+        Set<String> merged = new LinkedHashSet<>();
+        for (String token : normalizedCurrent.split(",")) {
+            if (!token.isBlank()) {
+                merged.add(token);
+            }
+        }
+        for (String token : normalizedIncoming.split(",")) {
+            if (!token.isBlank()) {
+                merged.add(token);
+            }
+        }
+        return String.join(",", merged);
+    }
+
+    private boolean hasPermissionAssignment(String house, String user) {
+        Map<String, String> housePermissions = permissions.get(house);
+        return housePermissions != null && housePermissions.containsKey(user);
+    }
+
+    private boolean hasHouseAccess(String house, String user) {
+        if (houses.containsKey(house) && user.equals(houses.get(house))) {
+            return true;
+        }
+        return hasPermissionAssignment(house, user);
+    }
+
+    private boolean isAllowedSection(String granted, String requestedSection) {
+        String normalizedGranted = normalizePermissionValue(granted);
+        String normalizedRequested = normalizePermissionValue(requestedSection);
+        if (normalizedGranted == null || normalizedRequested == null) {
+            return false;
+        }
+        if (normalizedGranted.equalsIgnoreCase("all")) {
+            return true;
+        }
+        if (normalizedRequested.equalsIgnoreCase("all")) {
+            return false;
+        }
+
+        Set<String> allowed = new LinkedHashSet<>();
+        for (String token : normalizedGranted.split(",")) {
+            if (!token.isBlank()) {
+                allowed.add(token);
+            }
+        }
+        for (String token : normalizedRequested.split(",")) {
+            if (!allowed.contains(token)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private String deviceSection(String deviceName) {
+        if (deviceName == null || deviceName.isEmpty()) {
+            return null;
+        }
+        return String.valueOf(Character.toUpperCase(deviceName.charAt(0)));
+    }
+
+    //Método CREATE
+    // TODO maybe verify for malicious input in the house name
     private String createHouse(String user, String house) {
         if (houses.containsKey(house)) {
             return "NOK";
@@ -167,6 +307,9 @@ public class ServerCommandHandler {
             permissions.put(house, housePermissions);
         }
         housePermissions.put(user, "all");
+        if (!persistPermissionsSnapshot()) {
+            System.err.println("Aviso: ficheiro de permissoes pode estar desatualizado apos CREATE.");
+        }
 
         if (!deviceState.containsKey(house)) {
             deviceState.put(house, new HashMap<>());
@@ -204,7 +347,13 @@ public class ServerCommandHandler {
         if (access) {
             housePermissions.put(userAdd, "all");
         } else {
-            housePermissions.put(userAdd, section);
+            String merged = mergePermissions(housePermissions.get(userAdd), section);
+            if (merged != null) {
+                housePermissions.put(userAdd, merged);
+            }
+        }
+        if (!persistPermissionsSnapshot()) {
+            System.err.println("Aviso: ficheiro de permissoes pode estar desatualizado apos ADD.");
         }
         
         return "OK";
@@ -251,31 +400,17 @@ public class ServerCommandHandler {
             return "NOK";
         }
         if (!houses.containsKey(house)) {
-            return "NOHM";
+            return hasPermissionAssignment(house, user) ? "NOHM" : "NOPERM";
+        }
+        if (!hasHouseAccess(house, user)) {
+            return "NOPERM";
+        }
+        if (!checkPermissions(house, user, deviceSection(device))) {
+            return "NOPERM";
         }
         Map<String, Integer> devices = deviceState.get(house);
         if (devices == null || !devices.containsKey(device)) {
             return "NOD";
-        }
-        String dono  = houses.get(house);
-        boolean isDono = dono.equals(user);
-        if (!isDono) {
-            Map<String, String> permissionsMap = permissions.get(house);
-            boolean isPermission = permissionsMap == null || !permissionsMap.containsKey(user);
-            if (isPermission) {
-                return "NOPERM";
-            }
-
-            String section = permissionsMap.get(user);
-            if (section == null) {
-                return "NOPERM";
-            }
-
-            boolean fullAccess = section.equalsIgnoreCase("all");
-            boolean sectionAccess = device.regionMatches(true, 0, section, 0, section.length());
-            if (!fullAccess && !sectionAccess) {
-                return "NOPERM";
-            }
         }
 
         devices.put(device, value);
@@ -284,13 +419,18 @@ public class ServerCommandHandler {
         return "OK";
     }
 
-    // verify this is implemented correctly with the current implementation of permissions
     private boolean checkPermissions(String house, String user, String section) {
-        if (houses.containsKey(house) && houses.get(house).equals(user)) {
-            Map<String, String> housePermissions = permissions.get(house);
-            return housePermissions.containsKey(user) && housePermissions.get(user).equals(section);
+        if (!houses.containsKey(house)) {
+            return false;
         }
-        return false;
+        if (user.equals(houses.get(house))) {
+            return true;
+        }
+        Map<String, String> housePermissions = permissions.get(house);
+        if (housePermissions == null || !housePermissions.containsKey(user)) {
+            return false;
+        }
+        return isAllowedSection(housePermissions.get(user), section);
     }
 
     //TODO Método RT (Obtém ficheiro de texto)
@@ -303,7 +443,10 @@ public class ServerCommandHandler {
     conteúdo do ficheiro
      */
     public String RT(String house, String user) {
-
+        // maybe return NOHM anyways even though user doesnt have permission??
+        if (!houses.containsKey(house)) return hasPermissionAssignment(house, user) ? "NOHM" : "NOPERM";
+        if (!hasHouseAccess(house, user)) return "NOPERM";
+        if (device.get(house) == null) return "NOD";
         return "OK";
     }
 
@@ -312,9 +455,9 @@ public class ServerCommandHandler {
     }
 
     //Método RH (Obter histórico)
-    // TODO needs to send file as well, can't just give a response
     public String RH(String house, String user, String device) {
-        String section = device.substring(0, 1);
+        if (!houses.containsKey(house)) return hasPermissionAssignment(house, user) ? "NOHM" : "NOPERM";
+        String section = deviceSection(device);
         if (!checkPermissions(house, user, section)) return "NOPERM";
         if (!deviceState.containsKey(house)) return "NOHM";
         if (!deviceState.get(house).containsKey(device)) return "NOD";
@@ -334,7 +477,10 @@ public class ServerCommandHandler {
      * @param device device which log file should be sent
      * @requires user must have permissions to access the device logs; otherwise the method should not be called
      */
-    public void RH_sendFile(String house, String device) {
+    public void RH_sendFile(String cmd, String device) {
+        // if cmd wasn't correct, it never should reach here
+        String[] parts = cmd.split(" ");
+        String house = parts[1];
         // send OK
         serverNetwork.send("OK");
         // send file size (in the sendFile function already) and send file bytes
@@ -401,12 +547,14 @@ public class ServerCommandHandler {
             String device = parts[2];
             return RH(house, user, device);
         }
-        // TODO Comando RT
-        /*
+        // Comando RT phase of: OK, NOPERMS, NOHM, NOD (other phases of RT are the responsibility of the caller using the helper function)
         else if (comando.equals("RT")) {
-
+            if (parts.length != 2) {
+                return "ERRO: O correto é: RT <hm>";
+            }
+            String house = parts[1];
+            return RT(house, user);
         }
-         */
 
 
         return "ERRO: Comando desconhecido: " + comando;

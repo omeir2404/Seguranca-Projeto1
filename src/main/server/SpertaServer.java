@@ -319,6 +319,15 @@ public class SpertaServer extends Thread{
 								network.send(response);
 						}
 					}
+					if (cmdStr.contains("RT")) {
+						switch (response) {
+							case "OK":
+								commandHandler.RT_sendFile(cmdStr, user);
+								break;
+							default:
+								network.send(response);
+						}
+					}
 
 					network.send(response);
 				}

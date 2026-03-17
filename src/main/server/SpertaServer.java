@@ -311,21 +311,17 @@ public class SpertaServer extends Thread{
 
 					String response = commandHandler.handleCommand(cmdStr, user);
 					if (cmdStr.contains("RH")) {
-						switch (response) {
-							case "OK":
-								commandHandler.RH_sendFile(cmdStr, user);
-								break;
-							default:
-								network.send(response);
+						if (response.equals("OK")) {
+							commandHandler.RH_sendFile(cmdStr, user);
+						} else {
+							network.send(response);
 						}
 					}
 					if (cmdStr.contains("RT")) {
-						switch (response) {
-							case "OK":
-								commandHandler.RT_sendFile(cmdStr, user);
-								break;
-							default:
-								network.send(response);
+						if (response.equals("OK")) {
+							commandHandler.RT_sendFile(cmdStr, user);
+						} else {
+							network.send(response);
 						}
 					}
 

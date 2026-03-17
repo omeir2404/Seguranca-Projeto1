@@ -1,6 +1,9 @@
 package main.server;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -32,8 +35,6 @@ public class ServerNetwork {
     // send a file
     public void sendFile(Path filePath) {
         try (InputStream fis = Files.newInputStream(filePath)) {
-            // send file name
-            out.writeObject(filePath.getFileName().toString());
             // send file size
             out.writeLong(Files.size(filePath));
             out.flush();

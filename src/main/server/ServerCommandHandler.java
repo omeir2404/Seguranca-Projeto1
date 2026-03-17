@@ -101,21 +101,30 @@ public class ServerCommandHandler {
             Path temp = target.resolveSibling(target.getFileName().toString() + ".tmp");
 
             StringBuilder content = new StringBuilder("House:User:Section");
-            for (Map.Entry<String, Map<String, String>> houseEntry : permissions.entrySet()) {
-                String house = houseEntry.getKey();
-                Map<String, String> housePermissions = houseEntry.getValue();
-                if (housePermissions == null) {
+
+            // Sort houses alphabetically for stable output
+            List<String> sortedHouses = new ArrayList<>(permissions.keySet());
+            Collections.sort(sortedHouses);
+
+            for (String house : sortedHouses) {
+                Map<String, String> housePermissions = permissions.get(house);
+                if (housePermissions == null || housePermissions.isEmpty()) {
                     continue;
                 }
-                for (Map.Entry<String, String> userEntry : housePermissions.entrySet()) {
-                    String normalized = normalizePermissionValue(userEntry.getValue());
+
+                // Sort users alphabetically for stable output within each house
+                List<String> sortedUsers = new ArrayList<>(housePermissions.keySet());
+                Collections.sort(sortedUsers);
+
+                for (String user : sortedUsers) {
+                    String normalized = normalizePermissionValue(housePermissions.get(user));
                     if (normalized == null) {
                         continue;
                     }
                     content.append(System.lineSeparator())
                             .append(house)
                             .append(":")
-                            .append(userEntry.getKey())
+                            .append(user)
                             .append(":")
                             .append(normalized);
                 }
@@ -405,7 +414,7 @@ public class ServerCommandHandler {
         if (!hasHouseAccess(house, user)) {
             return "NOPERM";
         }
-        if (!checkPermissions(house, user, deviceSection(device))) {
+        if (!hasDeviceAccess(house, user, device)) {
             return "NOPERM";
         }
         Map<String, Integer> devices = deviceState.get(house);
@@ -431,6 +440,10 @@ public class ServerCommandHandler {
             return false;
         }
         return isAllowedSection(housePermissions.get(user), section);
+    }
+
+    private boolean hasDeviceAccess(String house, String user, String deviceName) {
+        return checkPermissions(house, user, deviceSection(deviceName));
     }
 
     //TODO Método RT (Obtém ficheiro de texto)
@@ -473,7 +486,7 @@ public class ServerCommandHandler {
      * Sends the device log file to the client. Should only be called if the user has permissions to access
      * the device logs. It should only be called after calling RH and getting a return of "OK"
      *
-     * @param house  house which the device belongs to
+     * @param cmd cmd string with the house which the device belongs to
      * @param device device which log file should be sent
      * @requires user must have permissions to access the device logs; otherwise the method should not be called
      */

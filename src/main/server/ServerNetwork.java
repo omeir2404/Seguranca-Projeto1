@@ -1,9 +1,6 @@
 package main.server;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import java.io.*;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -43,6 +40,23 @@ public class ServerNetwork {
             byte[] buffer = new byte[8192];
             int bytesRead;
             while ((bytesRead = fis.read(buffer)) != -1) {
+                out.write(buffer, 0, bytesRead);
+            }
+            out.flush();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void sendFile(SequenceInputStream s, long totalSize) {
+        try (FileOutputStream fos = new FileOutputStream("merged.csv")) {
+            // send file size
+            this.send(totalSize);
+
+            // send file bytes
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            while ((bytesRead = s.read(buffer)) != -1) {
                 out.write(buffer, 0, bytesRead);
             }
             out.flush();

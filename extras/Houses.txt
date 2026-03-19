@@ -8,3 +8,5 @@ u:Nexus
 ds:Nexus
 iejd:Nexus
 KSNDKLS:Nexus
+k:Nexus
+i:Nexus

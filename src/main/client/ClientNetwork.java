@@ -14,10 +14,7 @@ public class ClientNetwork {
     ObjectOutputStream out;
     ObjectInputStream in;
 
-
-
     // send
-
     public void send(Object obj) {
         try {
             out.writeObject(obj);
@@ -28,7 +25,6 @@ public class ClientNetwork {
     }
 
     // receive
-
     public Object receive() {
         try {
             return in.readObject();
@@ -38,9 +34,13 @@ public class ClientNetwork {
         }
     }
 
-    public void receiveFile(Path targetDirectory) {
+    /**
+     * alterar para nao estar a espera do filename
+     * @param targetDirectory
+     */
+    public void receiveFile(Path targetDirectory, String fileName) {
         try {
-            String fileName = (String) in.readObject(); // server never sends filename
+            // String fileName = (String) in.readObject(); // server never sends filename
             long fileSize = in.readLong();
 
             Path outputPath = targetDirectory.resolve(fileName);
@@ -66,6 +66,8 @@ public class ClientNetwork {
             e.printStackTrace();
         }
     }
+
+    
 
 
     // init socket and streams

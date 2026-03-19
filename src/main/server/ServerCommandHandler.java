@@ -1,7 +1,6 @@
 package main.server;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.time.LocalDateTime;
@@ -53,8 +52,8 @@ public class ServerCommandHandler {
             Files.createDirectories(Paths.get(LOG_DIR));
             Path logPath = Paths.get(LOG_DIR, house + "_" + device + ".csv");
             if (Files.exists(logPath)) {
-                appendLine(logPath.toString(), command + ";" + LocalDateTime.now().format(TS_FORMAT));            }
-            else{
+                appendLine(logPath.toString(), command + ";" + LocalDateTime.now().format(TS_FORMAT));
+            } else {
                 appendLine(logPath.toString(), "time; command");
                 appendLine(logPath.toString(), command + ";" + LocalDateTime.now().format(TS_FORMAT));
             }
@@ -469,6 +468,39 @@ public class ServerCommandHandler {
 
     public void RT_sendFile(String house, String user) {
         // send the file resulting from the concatenation of all the devices logs that the user has access to in the given house
+        if (!houses.containsKey(house) || device.get(house) == null)
+            return; // maybe give an error? this should never happen as the caller should only call this after getting an OK from RT
+
+        File logFile = new File(LOG_DIR, house + ".csv"); // this is a temp file to send to the client (the server shouldn't save this maybe)
+        List<String> allowedDevices = new LinkedList<>();
+
+        deviceState.get(house).keySet().stream().filter(deviceName -> hasDeviceAccess(house, user, deviceName)).forEach(allowedDevices::add);
+
+        // sort devices alphabetically for stable output (not really needed, but for safety and testing purposes, it's better to have a deterministic order of the concatenation of the logs)
+        allowedDevices.sort(String::compareTo);
+
+        List<FileInputStream> files = new LinkedList<>();
+        final long[] totalSize = {0};
+        allowedDevices.stream().map(deviceName -> house + "_" + deviceName + ".csv").forEach(fileName -> {
+            try {
+                File f = new File(LOG_DIR, fileName);
+                files.add(new FileInputStream(f));
+                totalSize[0] += f.length();
+            } catch (FileNotFoundException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        try (SequenceInputStream s = new SequenceInputStream(Collections.enumeration(files))) {
+            // send OK
+            serverNetwork.send("OK");
+            // send file size (in the sendFile function already) and send file bytes
+            serverNetwork.sendFile(s, totalSize[0]);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+
     }
 
     //Método RH (Obter histórico)

@@ -5,3 +5,6 @@ casinha:Nexus
 agua:Nexus
 c:Nexus
 u:Nexus
+ds:Nexus
+iejd:Nexus
+KSNDKLS:Nexus

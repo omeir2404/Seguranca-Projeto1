@@ -25,7 +25,6 @@ public class SpertaServer extends Thread{
 	private static String ATTESTATION_FILE = "extras/attestation.txt";
 
 
-
 	private static void initializeFilePaths() {
 		Path current = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize();
 		Path projectRoot = current;
@@ -374,16 +373,16 @@ public class SpertaServer extends Thread{
 						} else {
 							network.send(response);
 						}
-					}
-					if (cmdStr.contains("RT")) {
+					} else if (cmdStr.contains("RT")) {
 						if (response.equals("OK")) {
 							commandHandler.RT_sendFile(cmdStr, user);
 						} else {
 							network.send(response);
 						}
+					} else {
+						network.send(response);
 					}
 
-					network.send(response);
 				}
 
                 network.close();

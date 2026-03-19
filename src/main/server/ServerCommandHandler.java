@@ -406,7 +406,7 @@ public class ServerCommandHandler {
         }
         if (!hasHouseAccess(house, user)) {
             return "NOPERM";
-        }
+        } 
         if (!hasDeviceAccess(house, user, device)) {
             return "NOPERM";
         }
@@ -426,17 +426,12 @@ public class ServerCommandHandler {
     public String RT(String house, String user) {
         // maybe return NOHM anyways even though user doesnt have permission??
         if (!houses.containsKey(house)) {
-            if (hasPermissionAssignment(house, user)) {
-                return "NOHM";
-            }
-            return "NOPERM";
+            return "NOHM";
         }
         if (!hasHouseAccess(house, user)){
             return "NOPERM";
         }
-        if (device.get(house) == null){
-            return "NOD";
-        } 
+        
         return "OK";
     }
 

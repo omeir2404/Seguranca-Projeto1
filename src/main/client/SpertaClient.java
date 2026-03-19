@@ -132,19 +132,22 @@ public class SpertaClient {
                 System.out.println("A desconectar...");
             } else if (!command.trim().isEmpty()) {
                 network.send(command);
-                
-                // handle Command RT
-                // if (command.trim().equals("RT")){
-                //     Path directory = Paths.get("logs");
-                //     network.receiveFile(directory, "houses.log");
-                // }
-                // handle Command RH
-                // if(command.trim().equals("RH")){
-                //     receiveFile();
+                String[] parts = command.trim().split("\\s+");
+                String commandName = parts[0].toUpperCase();
 
-                // }
-                Object response = network.receive();
+                Object responseObj = network.receive();
+                if (!(responseObj instanceof String response)) {
+                    System.out.printf("Resposta inesperada do servidor: %s%n", responseObj);
+                    continue;
+                }
                 System.out.println(response);
+
+                if (("RT".equals(commandName) || "RH".equals(commandName)) && "OK".equals(response)) {
+                    String fileContents = network.receiveFile();
+                    System.out.println("start file");
+                    System.out.println(fileContents);
+                    System.out.println("end file");
+                }
             }
 
         }

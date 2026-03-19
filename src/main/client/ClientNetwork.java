@@ -4,8 +4,6 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
-import java.nio.file.Files;
-import java.nio.file.Path;
 
 public class ClientNetwork {
 
@@ -35,20 +33,20 @@ public class ClientNetwork {
     }
 
     /**
-     * alterar para nao estar a espera do filename
-     * @param targetDirectory
+     * Receives a file sent by the server. The server first sends a long indicating the file size, followed by the file bytes.
+     * @returns String of the file contents or null if a file was not received properly
      */
-    public void receiveFile(Path targetDirectory, String fileName) {
+    public String receiveFile() {
+        StringBuilder sb = new StringBuilder();
         try {
             // String fileName = (String) in.readObject(); // server never sends filename
             long fileSize = in.readLong();
 
-            Path outputPath = targetDirectory.resolve(fileName);
-
+            System.out.printf("Recebendo arquivo de tamanho %d bytes...%n", fileSize);
             byte[] buffer = new byte[8192];
             long remaining = fileSize;
 
-            try (var fos = Files.newOutputStream(outputPath)) {
+            try {
                 while (remaining > 0) {
                     int toRead = (int) Math.min(buffer.length, remaining);
                     int bytesRead = in.read(buffer, 0, toRead);
@@ -57,14 +55,19 @@ public class ClientNetwork {
                         throw new IOException("Connection closed before file transfer completed");
                     }
 
-                    fos.write(buffer, 0, bytesRead);
+                    sb.append(new String(buffer, 0, bytesRead));
                     remaining -= bytesRead;
                 }
+            } catch (IOException e) {
+                e.printStackTrace();
+                return null;
             }
 
         } catch (Exception e) {
             e.printStackTrace();
+            return null;
         }
+        return sb.toString();
     }
 
     

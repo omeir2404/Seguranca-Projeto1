@@ -8,6 +8,7 @@ SERVER_CLASS = main.server.SpertaServer
 SERVER_ARGS = 2223
 CLIENT_CLASS = main.client.SpertaClient
 CLIENT_ARGS = 127.0.0.1:2223 Nexus ehBueFixe
+CLIENT_ARGS2 = 127.0.0.1:2223 User pass
 CLIENT_WRONG_ARGS = 127.0.0.1:2223 Nexus Eclipsew
 CLIENT_ARGS_NO_PORT = 127.0.0.1 Nexus ehBueFixe
 
@@ -35,6 +36,9 @@ server: compile
 
 client: compile
 	@$(JAVA) -cp $(BIN_DIR) $(CLIENT_CLASS) $(CLIENT_ARGS)
+
+client2: compile
+	@$(JAVA) -cp $(BIN_DIR) $(CLIENT_CLASS) $(CLIENT_ARGS2)
 
 wrongclient: compile
 	@$(JAVA) -cp $(BIN_DIR) $(CLIENT_CLASS) $(CLIENT_WRONG_ARGS)

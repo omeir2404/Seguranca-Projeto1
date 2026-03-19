@@ -21,6 +21,7 @@ public class ServerCommandHandler {
     private static String COUNTERS_FILE = "extras/SectionCounters.txt";
     private static String HOUSE_AUDIT_LOG = "logs/houses.log";
     private static String LOG_DIR = "logs/";
+    private static final String LOGS_HEADER = "time; command";
     private static final DateTimeFormatter TS_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
     private ServerNetwork serverNetwork;
 
@@ -49,12 +50,8 @@ public class ServerCommandHandler {
         try {
             Files.createDirectories(Paths.get(LOG_DIR));
             Path logPath = Paths.get(LOG_DIR, house + "_" + device + ".csv");
-            if (Files.exists(logPath)) {
-                appendLine(logPath.toString(), LocalDateTime.now().format(TS_FORMAT) + ";" + command);
-            } else {
-                appendLine(logPath.toString(), "time; command");
-                appendLine(logPath.toString(), LocalDateTime.now().format(TS_FORMAT) + ";" + command);
-            }
+            ensureLogHeaderAtTop(logPath, LOGS_HEADER);
+            appendLine(logPath.toString(), LocalDateTime.now().format(TS_FORMAT) + ";" + command);
 
         } catch (Exception e){
             e.printStackTrace();
@@ -76,6 +73,44 @@ public class ServerCommandHandler {
         if (!Files.exists(path) || Files.size(path) == 0L) {
             Files.writeString(path, header + System.lineSeparator(), StandardCharsets.UTF_8,
                 StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        }
+    }
+
+    private void ensureLogHeaderAtTop(Path logPath, String header) throws IOException {
+        ensureParentDir(logPath.toString());
+        if (!Files.exists(logPath)) {
+            Files.writeString(
+                    logPath,
+                    header + System.lineSeparator(),
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING
+            );
+            return;
+        }
+
+        String content = Files.readString(logPath, StandardCharsets.UTF_8);
+        if (content.isEmpty()) {
+            Files.writeString(
+                    logPath,
+                    header + System.lineSeparator(),
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.TRUNCATE_EXISTING,
+                    StandardOpenOption.WRITE
+            );
+            return;
+        }
+
+        String[] lines = content.split("\\R", 2);
+        String firstLine = lines.length > 0 ? lines[0].trim() : "";
+        if (!header.equalsIgnoreCase(firstLine)) {
+            Files.writeString(
+                    logPath,
+                    header + System.lineSeparator() + content,
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.TRUNCATE_EXISTING,
+                    StandardOpenOption.WRITE
+            );
         }
     }
 
@@ -158,7 +193,7 @@ public class ServerCommandHandler {
     private String countersToString(Map<String, Integer> counters) {
         StringBuilder sb = new StringBuilder();
         for (Map.Entry<String, Integer> entry : counters.entrySet()) {
-            if (sb.length() > 0) {
+            if (!sb.isEmpty()) {
                 sb.append(",");
             }
             sb.append(entry.getKey()).append("=").append(entry.getValue());
@@ -222,33 +257,6 @@ public class ServerCommandHandler {
         return String.join(",", sections);
     }
 
-    private String mergePermissions(String current, String incoming) {
-        String normalizedIncoming = normalizePermissionValue(incoming);
-        if (normalizedIncoming == null) {
-            return current;
-        }
-        String normalizedCurrent = normalizePermissionValue(current);
-        if ("all".equalsIgnoreCase(normalizedCurrent) || "all".equalsIgnoreCase(normalizedIncoming)) {
-            return "all";
-        }
-        if (normalizedCurrent == null) {
-            return normalizedIncoming;
-        }
-
-        Set<String> merged = new LinkedHashSet<>();
-        for (String token : normalizedCurrent.split(",")) {
-            if (!token.isBlank()) {
-                merged.add(token);
-            }
-        }
-        for (String token : normalizedIncoming.split(",")) {
-            if (!token.isBlank()) {
-                merged.add(token);
-            }
-        }
-        return String.join(",", merged);
-    }
-
     private boolean hasPermissionAssignment(String house, String user) {
         Map<String, String> housePermissions = permissions.get(house);
         return housePermissions != null && housePermissions.containsKey(user);
@@ -308,19 +316,14 @@ public class ServerCommandHandler {
             return "NOK";
         }
 
-        Map<String, String> housePermissions = permissions.get(house);
-        if (housePermissions == null) {
-            housePermissions = new HashMap<>();
-            permissions.put(house, housePermissions);
-        }
+        Map<String, String> housePermissions = permissions.computeIfAbsent(house, k -> new HashMap<>());
         housePermissions.put(user, "all");
         if (!persistPermissionsSnapshot()) {
             System.err.println("Aviso: ficheiro de permissoes pode estar desatualizado apos CREATE.");
         }
 
-        if (!deviceState.containsKey(house)) {
-            deviceState.put(house, new HashMap<>());
-        }
+        deviceState.computeIfAbsent(house, k -> new HashMap<>());
+
         return "OK";
     }
 
@@ -337,20 +340,12 @@ public class ServerCommandHandler {
             return "NOPERM";
         }
 
-        Map<String, String> housePermissions = permissions.get(house);
-        if (housePermissions == null) {
-            housePermissions = new HashMap<>();
-            permissions.put(house, housePermissions);
-        }
+        Map<String, String> housePermissions = permissions.computeIfAbsent(house, k -> new HashMap<>());
 
-        boolean access = section.equalsIgnoreCase("all");
-        if (access) {
-            housePermissions.put(userAdd, "all");
-        } else {
-            String merged = mergePermissions(housePermissions.get(userAdd), section);
-            if (merged != null) {
-                housePermissions.put(userAdd, merged);
-            }
+        String normalized = normalizePermissionValue(section);
+        if (normalized != null) {
+            // Owner assignment replaces any previous permission set for that user.
+            housePermissions.put(userAdd, normalized);
         }
         if (!persistPermissionsSnapshot()) {
             System.err.println("Aviso: ficheiro de permissoes pode estar desatualizado apos ADD.");
@@ -444,14 +439,22 @@ public class ServerCommandHandler {
 
         // sort devices alphabetically for stable output (not really needed, but for safety and testing purposes, it's better to have a deterministic order of the concatenation of the logs)
         allowedDevices.sort(String::compareTo);
-
+        File lineSeparatorFile = new File(LOG_DIR, "lineSeparator.txt");
+        try {
+            if (!lineSeparatorFile.exists()) {
+                Files.writeString(lineSeparatorFile.toPath(), System.lineSeparator(), StandardCharsets.UTF_8, StandardOpenOption.CREATE);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         List<FileInputStream> files = new LinkedList<>();
         final long[] totalSize = {0};
         allowedDevices.stream().map(deviceName -> house + "_" + deviceName + ".csv").forEach(fileName -> {
             try {
                 File f = new File(LOG_DIR, fileName);
                 files.add(new FileInputStream(f));
-                totalSize[0] += f.length();
+                files.add(new FileInputStream(lineSeparatorFile)); // make sure the files have a line separator between them
+                totalSize[0] += f.length() + lineSeparatorFile.length();
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
             }
@@ -550,65 +553,72 @@ public class ServerCommandHandler {
         }
 
         String[] parts = cmd.trim().split("\\s+");
-        System.out.println(parts);
+        System.out.println(Arrays.toString(parts));
         System.out.println(parts.length);
         String comando = parts[0].toUpperCase();
     
         // Comando CREATE
-        if (comando.equals("CREATE")) {
-            if (parts.length != 2) {
-                return "ERRO: O correto é: CREATE <hm>";
+        switch (comando) {
+            case "CREATE" -> {
+                if (parts.length != 2) {
+                    return "ERRO: O correto é: CREATE <hm>";
+                }
+                String houseName = parts[1];
+                return createHouse(user, houseName);
             }
-            String houseName = parts[1];
-            return createHouse(user, houseName);
 
-        // Comando ADD
-        } else if (comando.equals("ADD")) {
-            if (parts.length != 4) {
-                return "ERRO: O correto é:  ADD <user1> <hm> <s>";
-            }
-            String userAdd = parts[1];
-            String house = parts[2];
-            String section = parts[3];
-            return addHouse(user, userAdd, house, section);
-        
-        // Comando RD
-        } else if (comando.equals("RD")) {
-            System.out.println("RD CALLED");
-            System.out.println(Arrays.toString(parts));
-            if (parts.length != 3) {
-                return "ERRO: O correto é:  RD <hm> <s>";
-            }
-            String house = parts[1];
-            String section = parts[2];
-            return registerDevice(user, house, section);
+            // Comando ADD
+            case "ADD" -> {
+                if (parts.length != 4) {
+                    return "ERRO: O correto é:  ADD <user1> <hm> <s>";
+                }
+                String userAdd = parts[1];
+                String house = parts[2];
+                String section = parts[3];
+                return addHouse(user, userAdd, house, section);
 
-        // Comando EC
-        }else if (comando.equals("EC")) {
-            if (parts.length != 4) {
-                return "ERRO: O correto é: EC <hm> <d> <int>";
+                // Comando RD
             }
-            String house = parts[1];
-            String device = parts[2];
-            String value = parts[3];
-            return sendInt(user, house, device, value);
-        
-        // Comando RH 
-        }else if (comando.equals("RH")) {
-            if (parts.length != 3) {
-                return "ERRO: O correto é: RH <hm> <d>";
+            case "RD" -> {
+                System.out.println("RD CALLED");
+                System.out.println(Arrays.toString(parts));
+                if (parts.length != 3) {
+                    return "ERRO: O correto é:  RD <hm> <s>";
+                }
+                String house = parts[1];
+                String section = parts[2];
+                return registerDevice(user, house, section);
+
+                // Comando EC
             }
-            String house = parts[1];
-            String device = parts[2];
-            return historic(house, user, device);
-        
-        // Comando RT
-        }else if (comando.equals("RT")) {
-            if (parts.length != 2) {
-                return "ERRO: O correto é: RT <hm>";
+            case "EC" -> {
+                if (parts.length != 4) {
+                    return "ERRO: O correto é: EC <hm> <d> <int>";
+                }
+                String house = parts[1];
+                String device = parts[2];
+                String value = parts[3];
+                return sendInt(user, house, device, value);
+
+                // Comando RH
             }
-            String house = parts[1];
-            return RT(house, user);
+            case "RH" -> {
+                if (parts.length != 3) {
+                    return "ERRO: O correto é: RH <hm> <d>";
+                }
+                String house = parts[1];
+                String device = parts[2];
+                return historic(house, user, device);
+
+                // Comando RT
+            }
+            case "RT" -> {
+                if (parts.length != 2) {
+                    return "ERRO: O correto é: RT <hm>";
+                }
+                String house = parts[1];
+                return RT(house, user);
+            }
         }
 
         return "ERRO: Comando desconhecido: " + comando;

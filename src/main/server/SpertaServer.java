@@ -47,26 +47,23 @@ public class SpertaServer extends Thread{
 
     private static int validateInput(String[] args){
 		int port = 0;
-		if (args.length > 1 || args.length < 0){
+		if (args.length > 1) {
 			System.out.println("Input Inválido: SpertaServer [port]");
     		System.exit(-1);
 		}
 		if (args.length == 0)
 			return 0;
-		if(args.length == 1){
-			try {
-				port = Integer.parseInt(args[0]);
-			} catch (Exception e) {
-				System.out.println("A porta tem de ser de tipo Integer");
-    			System.exit(-1);
-			}
-			if (port < 1024 || port > 65523){
-			    System.err.println("A porta tem de estar entre 1024 e 65535");
-    			System.exit(-1);
-			}
-			return port;
+		try {
+			port = Integer.parseInt(args[0]);
+		} catch (Exception e) {
+			System.out.println("A porta tem de ser de tipo Integer");
+			System.exit(-1);
 		}
-		return 0;
+		if (port < 1024 || port > 65523) {
+			System.err.println("A porta tem de estar entre 1024 e 65535");
+			System.exit(-1);
+		}
+		return port;
 	}
 
 	public static void initialize_server_vars(){
@@ -133,6 +130,8 @@ public class SpertaServer extends Thread{
 					continue;
 				}
 
+				normalizeLogHeader(logPath);
+
 				String baseName = fileName.substring(0, fileName.length() - 4);
 				int separator = baseName.lastIndexOf('_');
 				if (separator <= 0 || separator >= baseName.length() - 1) {
@@ -157,6 +156,31 @@ public class SpertaServer extends Thread{
 		}
 
 		printRebuildSummary(restoredPerHouse, totalRestored);
+	}
+
+	private static void normalizeLogHeader(Path logPath) {
+		try {
+			if (!Files.exists(logPath)) {
+				return;
+			}
+
+			String firstLine;
+			try (BufferedReader reader = Files.newBufferedReader(logPath)) {
+				firstLine = reader.readLine();
+			}
+
+			if (firstLine == null) {
+				Files.writeString(logPath, "time; command" + System.lineSeparator());
+				return;
+			}
+
+			if (!"time; command".equalsIgnoreCase(firstLine)) {
+				String content = Files.readString(logPath);
+				Files.writeString(logPath, "time; command" + System.lineSeparator() + content);
+			}
+		} catch (IOException e) {
+			System.err.println("Erro ao normalizar cabecalho do log " + logPath + ": " + e.getMessage());
+		}
 	}
 
 	private static void printRebuildSummary(Map<String, Integer> restoredPerHouse, int totalRestored) {
@@ -186,14 +210,14 @@ public class SpertaServer extends Thread{
 					continue;
 				}
 
-				String[] csvParts = line.split(";", 2);
-				if (csvParts.length == 0) {
+				String commandPart = extractCommandPart(line);
+				if (commandPart == null || commandPart.isEmpty()) {
 					continue;
 				}
 
-				String[] cmdParts = csvParts[0].trim().split("\\s+");
+				String[] cmdParts = commandPart.split("\\s+");
 				if (cmdParts.length >= 4 && "EC".equalsIgnoreCase(cmdParts[0])) {
-					if (!expectedHouse.equals(cmdParts[1]) || !expectedDevice.equals(cmdParts[2])) {
+					if (!expectedHouse.equalsIgnoreCase(cmdParts[1]) || !expectedDevice.equalsIgnoreCase(cmdParts[2])) {
 						continue;
 					}
 					try {
@@ -210,6 +234,27 @@ public class SpertaServer extends Thread{
 			System.err.println("Aviso ao ler log de dispositivo " + logPath + ": " + e.getMessage());
 		}
 		return lastValue;
+	}
+
+	private static String extractCommandPart(String line) {
+		String[] csvParts = line.split(";", 2);
+		if (csvParts.length == 2) {
+			String first = csvParts[0].trim();
+			String second = csvParts[1].trim();
+
+			// Current format: timestamp;command. Legacy format may be command;timestamp.
+			if (second.toUpperCase().startsWith("EC ")) {
+				return second;
+			}
+			if (first.toUpperCase().startsWith("EC ")) {
+				return first;
+			}
+			return null;
+		}
+
+		// Backward compatibility for command-only lines.
+		String raw = line.trim();
+		return raw.toUpperCase().startsWith("EC ") ? raw : null;
 	}
 
 	private static void loadHousesFromFile() {
@@ -465,7 +510,7 @@ public class SpertaServer extends Thread{
 					System.out.printf("Comando de %s: %s\n", user, cmdStr);
 
 					String response = commandHandler.handleCommand(cmdStr, user);
-					String parts[] = cmdStr.trim().split("\\s+");
+					String[] parts = cmdStr.trim().split("\\s+");
 					if (parts[0].equalsIgnoreCase("RH")) {
 						if (response.equals("OK")) {
 							System.out.println("RH RETURNED OK");

@@ -15,3 +15,9 @@
   - `user_id:password` for each line 
 - ### Perms.txt: 
   - `house_id [user_id:section_id,...; user_id:section_id,...]` for each house 1 line with all the permissions for each section
+
+## Duvidas
+
+- se o mesmo utilizador tentar entrar em dois clientes diferentes, ao mesmo tempo, o mesmo utilizador pode ser
+  bloqueado? ou desconectar o primeiro?
+- 

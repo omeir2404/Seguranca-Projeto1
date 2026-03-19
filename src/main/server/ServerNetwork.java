@@ -2,6 +2,7 @@ package main.server;
 
 import java.io.*;
 import java.net.Socket;
+import java.net.SocketException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -71,8 +72,14 @@ public class ServerNetwork {
     public Object receive() {
         try {
             return in.readObject();
+        } catch (EOFException e) {
+            // Expected when peer closes the connection or streams are closed during shutdown.
+            return null;
+        } catch (SocketException e) {
+            // Expected when socket is closed during server shutdown.
+            return null;
         } catch (Exception e) {
-            e.printStackTrace();
+            System.err.println("Erro a receber dados do cliente: " + e.getMessage());
             return null;
         }
     }

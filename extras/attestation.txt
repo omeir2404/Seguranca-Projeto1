@@ -1,1 +1,1 @@
-SpertaClient:6305
+SpertaClient:7195

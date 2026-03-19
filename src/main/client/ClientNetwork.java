@@ -40,7 +40,7 @@ public class ClientNetwork {
 
     public void receiveFile(Path targetDirectory) {
         try {
-            String fileName = (String) in.readObject();
+            String fileName = (String) in.readObject(); // server never sends filename
             long fileSize = in.readLong();
 
             Path outputPath = targetDirectory.resolve(fileName);

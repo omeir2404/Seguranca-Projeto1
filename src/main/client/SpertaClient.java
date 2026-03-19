@@ -132,11 +132,16 @@ public class SpertaClient {
                 System.out.println("A desconectar...");
             } else if (!command.trim().isEmpty()) {
                 network.send(command);
+                // handle command RT
 
+                // handle Command RH
+
+                
                 Object response = network.receive();
                 System.out.println(response);
                 // command = null;
             }
+
         }
     }
 

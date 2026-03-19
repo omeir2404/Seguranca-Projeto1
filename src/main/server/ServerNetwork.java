@@ -49,9 +49,10 @@ public class ServerNetwork {
     }
 
     public void sendFile(SequenceInputStream s, long totalSize) {
-        try (FileOutputStream fos = new FileOutputStream("merged.csv")) {
-            // send file size
-            this.send(totalSize);
+        try {
+            // send file size using the same framing used in sendFile(Path)
+            out.writeLong(totalSize);
+            out.flush();
 
             // send file bytes
             byte[] buffer = new byte[8192];

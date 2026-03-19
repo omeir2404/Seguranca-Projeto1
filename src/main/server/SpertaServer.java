@@ -202,7 +202,7 @@ public class SpertaServer extends Thread{
 							lastValue = parsed;
 						}
 					} catch (NumberFormatException ignored) {
-						// Ignore malformed EC values and keep the last valid state.
+						System.err.println("Valor inválido no log: " + cmdParts[3]);
 					}
 				}
 			}
@@ -238,7 +238,7 @@ public class SpertaServer extends Thread{
 				}
 			}
 		} catch (IOException e) {
-			System.err.println("Aviso ao ler " + HOUSES_FILE + ": " + e.getMessage());
+			System.err.println("ERRO ao ler " + HOUSES_FILE + ": " + e.getMessage());
 		}
 	}
 

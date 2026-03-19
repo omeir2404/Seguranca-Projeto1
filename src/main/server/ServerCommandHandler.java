@@ -50,10 +50,10 @@ public class ServerCommandHandler {
             Files.createDirectories(Paths.get(LOG_DIR));
             Path logPath = Paths.get(LOG_DIR, house + "_" + device + ".csv");
             if (Files.exists(logPath)) {
-                appendLine(logPath.toString(), command + ";" + LocalDateTime.now().format(TS_FORMAT));
+                appendLine(logPath.toString(), LocalDateTime.now().format(TS_FORMAT) + ";" + command);
             } else {
                 appendLine(logPath.toString(), "time; command");
-                appendLine(logPath.toString(), command + ";" + LocalDateTime.now().format(TS_FORMAT));
+                appendLine(logPath.toString(), LocalDateTime.now().format(TS_FORMAT) + ";" + command);
             }
 
         } catch (Exception e){
@@ -390,6 +390,9 @@ public class ServerCommandHandler {
 
     //Método EC (Enviar valor)
     public String sendInt(String user, String house, String device, String valueStr){
+        if (device != null) {
+            device = device.toUpperCase();
+        }
         int value;
         try {
             value = Integer.parseInt(valueStr);
@@ -402,17 +405,16 @@ public class ServerCommandHandler {
         if (!houses.containsKey(house)) {
             return hasPermissionAssignment(house, user) ? "NOHM" : "NOPERM";
         }
-        if (!hasHouseAccess(house, user)) {
-            return "NOPERM";
-        } 
-        if (!hasDeviceAccess(house, user, device)) {
+        if (!hasHouseAccess(house, user) || !hasDeviceAccess(house, user, device)) {
             return "NOPERM";
         }
         Map<String, Integer> devices = deviceState.get(house);
         if (devices == null || !devices.containsKey(device)) {
             return "NOD";
         }
-
+        if (!hasDeviceAccess(house, user, device)) {
+            return "NOPERM";
+        }
         devices.put(device, value);
         // EC <hm> <d> <int>
         updateDeviceLogs("EC " + house + " " + device + " " + value, house, device);
@@ -469,6 +471,9 @@ public class ServerCommandHandler {
 
     // Método RH (Obter histórico)
     public String historic(String house, String user, String device){
+        if (device != null) {
+            device = device.toUpperCase();
+        }
         if(!houses.containsKey(house)){
             return "NOHM";
         }
@@ -498,6 +503,9 @@ public class ServerCommandHandler {
      * @requires {@code house} to be valid
      */
     public void RH_sendFile(String house, String device) {
+        if (device != null) {
+            device = device.toUpperCase();
+        }
 
         serverNetwork.send("OK");
         // send file size (in the sendFile function already) and send file bytes
@@ -566,6 +574,8 @@ public class ServerCommandHandler {
         
         // Comando RD
         } else if (comando.equals("RD")) {
+            System.out.println("RD CALLED");
+            System.out.println(Arrays.toString(parts));
             if (parts.length != 3) {
                 return "ERRO: O correto é:  RD <hm> <s>";
             }

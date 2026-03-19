@@ -118,7 +118,71 @@ public class SpertaServer extends Thread{
 			System.exit(-1);
 
 		}
+
+		// loadHousesFromFile();
+		// loadPermissionsFromFile();
 	}
+
+	// private static void loadHousesFromFile() {
+	// 	try (BufferedReader reader = new BufferedReader(new FileReader(HOUSES_FILE))) {
+	// 		String line;
+	// 		boolean firstLine = true;
+
+	// 		while ((line = reader.readLine()) != null) {
+	// 			if (firstLine) {
+	// 				firstLine = false;
+	// 				continue; // Skip header line (e.g., House:Owner)
+	// 			}
+
+	// 			line = line.trim();
+	// 			if (line.isEmpty()) {
+	// 				continue;
+	// 			}
+
+	// 			String[] parts = line.split(":", 2);
+	// 			if (parts.length == 2) {
+	// 				String house = parts[0].trim();
+	// 				String owner = parts[1].trim();
+	// 				if (!house.isEmpty() && !owner.isEmpty()) {
+	// 					houses.put(house, owner);
+	// 				}
+	// 			}
+	// 		}
+	// 	} catch (IOException e) {
+	// 		System.err.println("Aviso ao ler " + HOUSES_FILE + ": " + e.getMessage());
+	// 	}
+	// }
+
+	// private static void loadPermissionsFromFile() {
+	// 	try (BufferedReader reader = new BufferedReader(new FileReader(PERMISSIONS_FILE))) {
+	// 		String line;
+	// 		boolean firstLine = true;
+
+	// 		while ((line = reader.readLine()) != null) {
+	// 			if (firstLine) {
+	// 				firstLine = false;
+	// 				continue; // Skip header line (e.g., House:User:Section)
+	// 			}
+
+	// 			line = line.trim();
+	// 			if (line.isEmpty()) {
+	// 				continue;
+	// 			}
+
+	// 			String[] parts = line.split(":", 3);
+	// 			if (parts.length == 3) {
+	// 				String house = parts[0].trim();
+	// 				String user = parts[1].trim();
+	// 				String section = parts[2].trim();
+	// 				if (!house.isEmpty() && !user.isEmpty() && !section.isEmpty()) {
+	// 					permissions.computeIfAbsent(house, k -> new HashMap<>()).put(user, section);
+	// 				}
+	// 			}
+	// 		}
+	// 	} catch (IOException e) {
+	// 		System.err.println("Aviso ao ler " + PERMISSIONS_FILE + ": " + e.getMessage());
+	// 	}
+	// }
 
 	private static synchronized void appendUserToFile(String user, String pass) {
 		try (BufferedWriter writer = new BufferedWriter(new FileWriter(USERS_FILE, true))) {

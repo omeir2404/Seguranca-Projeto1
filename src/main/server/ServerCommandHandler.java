@@ -429,7 +429,9 @@ public class ServerCommandHandler {
     }
 
     private boolean checkPermissions(String house, String user, String section) {
+        System.out.println("HEHEHEHEHEHEHEHEHEHE    ");
         if (!houses.containsKey(house)) {
+            System.out.println("House Doesnt exist, maybe its the voices");
             return false;
         }
         if (user.equals(houses.get(house))) {
@@ -437,6 +439,7 @@ public class ServerCommandHandler {
         }
         Map<String, String> housePermissions = permissions.get(house);
         if (housePermissions == null || !housePermissions.containsKey(user)) {
+            System.out.println("House permissions are null OR user doesnt have permission");
             return false;
         }
         return isAllowedSection(housePermissions.get(user), section);
@@ -447,19 +450,20 @@ public class ServerCommandHandler {
     }
 
     //TODO Método RT (Obtém ficheiro de texto)
-    // should be implemented like RH and RH_sendFile
-    /*
-    O comando RT <hm> permite à aplicação cliente obter um ficheiro de texto com os últimos
-    comandos de alteração de estado/temporização gravados no servidor referentes a todos os
-    dispositivos de uma casa <hm>, ou aqueles que o utilizador tem permissão. Assim, o cliente deverá
-    receber uma mensagem OK, depois um número LONG com o tamanho do ficheiro, e em seguida o
-    conteúdo do ficheiro
-     */
     public String RT(String house, String user) {
         // maybe return NOHM anyways even though user doesnt have permission??
-        if (!houses.containsKey(house)) return hasPermissionAssignment(house, user) ? "NOHM" : "NOPERM";
-        if (!hasHouseAccess(house, user)) return "NOPERM";
-        if (device.get(house) == null) return "NOD";
+        if (!houses.containsKey(house)) {
+            if (hasPermissionAssignment(house, user)) {
+                return "NOHM";
+            }
+            return "NOPERM";
+        }
+        if (!hasHouseAccess(house, user)){
+            return "NOPERM";
+        }
+        if (device.get(house) == null){
+            return "NOD";
+        } 
         return "OK";
     }
 
@@ -468,12 +472,26 @@ public class ServerCommandHandler {
     }
 
     //Método RH (Obter histórico)
-    public String RH(String house, String user, String device) {
-        if (!houses.containsKey(house)) return hasPermissionAssignment(house, user) ? "NOHM" : "NOPERM";
+    public String RH(String house, String user, String device) {   
+        System.out.println("COMANDO RH HANLER"); 
+        if (!houses.containsKey(house)) {
+            System.out.println("casa existe");
+            if (hasPermissionAssignment(house, user)) {
+                return "NOHM";
+            }
+            return "NOPERM";
+        }
+        System.out.println("HAHAHAHAHAHAHARTICUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU");
         String section = deviceSection(device);
-        if (!checkPermissions(house, user, section)) return "NOPERM";
-        if (!deviceState.containsKey(house)) return "NOHM";
-        if (!deviceState.get(house).containsKey(device)) return "NOD";
+        if (!checkPermissions(house, user, section)){
+            return "NOPERM";
+        }   
+        if (!deviceState.containsKey(house)){
+            return "NOHM";
+        }
+        if (!deviceState.get(house).containsKey(device)){
+            return "NOD";
+        }  
         File logFile = new File(LOG_DIR, house + "_" + device + ".csv");
         if (!logFile.exists()) {
             System.out.println("No logs found for device " + device + " in house " + house);
@@ -494,11 +512,11 @@ public class ServerCommandHandler {
         // if cmd wasn't correct, it never should reach here
         String[] parts = cmd.split(" ");
         String house = parts[1];
-        // send OK
+        
         serverNetwork.send("OK");
         // send file size (in the sendFile function already) and send file bytes
         File logFile = new File(LOG_DIR, house + "_" + device + ".csv");
-        if (logFile.exists()) { // redundant check, but for safety it's checked again
+        if (logFile.exists()) { 
             serverNetwork.sendFile(logFile.toPath());
         } else {
             System.out.println("No logs found for device " + device + " in house " + house);
@@ -513,6 +531,8 @@ public class ServerCommandHandler {
         
         cmd = cmd.trim();
         String[] parts = cmd.split(" ");
+        System.out.println(parts);
+        System.out.println(parts.length);
         String comando = parts[0].toUpperCase();
     
         // Comando CREATE
@@ -542,7 +562,7 @@ public class ServerCommandHandler {
             String section = parts[2];
             return registerDevice(user, house, section);
 
-            // Comando EC
+        // Comando EC
         }else if (comando.equals("EC")) {
             if (parts.length != 4) {
                 return "ERRO: O correto é: EC <hm> <d> <int>";
@@ -551,17 +571,18 @@ public class ServerCommandHandler {
             String device = parts[2];
             String value = parts[3];
             return sendInt(user, house, device, value);
-        } // Comando RH phase of: OK, NOPERMS, NOHM, NOD, NODATA (other phases of RH are the responsibility of the caller using the helper function)
-        else if (comando.equals("RH")) {
+        
+        // Comando RH 
+        }else if (comando.equals("RH")) {
             if (parts.length != 3) {
                 return "ERRO: O correto é: RH <hm> <d>";
             }
             String house = parts[1];
             String device = parts[2];
             return RH(house, user, device);
-        }
-        // Comando RT phase of: OK, NOPERMS, NOHM, NOD (other phases of RT are the responsibility of the caller using the helper function)
-        else if (comando.equals("RT")) {
+        
+        // Comando RT
+        }else if (comando.equals("RT")) {
             if (parts.length != 2) {
                 return "ERRO: O correto é: RT <hm>";
             }

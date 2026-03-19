@@ -15,7 +15,6 @@ public class SpertaServer extends Thread{
 	private static Map<String, String> users;
 	private static Map<String, String> houses;
 	private static Map<String, Map<String, String>> permissions;
-	private static Map<String, Map<String, Integer>> device;
 	private static Map<String, Map<String, Integer>> deviceState;
 
 	private static String USERS_FILE = "extras/Users.txt";
@@ -73,7 +72,6 @@ public class SpertaServer extends Thread{
 		users = new HashMap<>();
 		houses = new HashMap<>();
 		permissions = new HashMap<>();
-		device = new HashMap<>();
 		deviceState = new HashMap<>();
 
 
@@ -247,7 +245,7 @@ public class SpertaServer extends Thread{
 			this.socket = sock;
 			try{
 				this.network = new ServerNetwork(sock);
-				this.commandHandler = new ServerCommandHandler(users, houses, permissions, device, deviceState, network);
+				this.commandHandler = new ServerCommandHandler(users, houses, permissions, deviceState, network);
 				System.out.println("Thread do servidor criada para cliente.");
 			} catch (Exception e){
 				System.out.println("Erro ao criar thread do servidor");
@@ -361,21 +359,26 @@ public class SpertaServer extends Thread{
 					if (cmdStr == null){
 						break;
 					}
-					System.out.println("Comando de " + user + ": " + cmdStr);
+					System.out.printf("Comando de %s: %s\n", user, cmdStr);
 
 					String response = commandHandler.handleCommand(cmdStr, user);
-					if (cmdStr.contains("RH")) {
+					String parts[] = cmdStr.trim().split("\\s+");
+					if (parts[0].equalsIgnoreCase("RH")) {
 						if (response.equals("OK")) {
 							System.out.println("RH RETURNED OK");
-							String[] parts = cmdStr.trim().split("\\s+");
 							String device = parts[2];
-							commandHandler.RH_sendFile(cmdStr, device);
+							String house = parts[1];
+							System.out.printf("RH: house=%s, device=%s\n", house, device);
+							commandHandler.RH_sendFile(house, device);
 						} else {
 							network.send(response);
 						}
-					} else if (cmdStr.contains("RT")) {
+					} else if (parts[0].equalsIgnoreCase("RT")) {
 						if (response.equals("OK")) {
-							commandHandler.RT_sendFile(cmdStr, user);
+							System.out.println("RT RETURNED OK");
+							String house = parts[1];
+							System.out.printf("RT: house=%s\n", house);
+							commandHandler.RT_sendFile(house, user);
 						} else {
 							network.send(response);
 						}

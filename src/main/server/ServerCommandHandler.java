@@ -12,7 +12,6 @@ public class ServerCommandHandler {
     private Map<String, String> users;
     private Map<String, String> houses;
     private Map<String, Map<String, String>> permissions;
-    private Map<String, Map<String, Integer>> device;
     private Map<String, Map<String, Integer>> deviceState;
 
 
@@ -25,13 +24,12 @@ public class ServerCommandHandler {
     private static final DateTimeFormatter TS_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
     private ServerNetwork serverNetwork;
 
-    public ServerCommandHandler(Map<String, String> users, Map<String, String> houses, Map<String, Map<String, String>> permissions, Map<String, Map<String, Integer>> device, Map<String, Map<String, Integer>> deviceState, ServerNetwork serverNetwork) {
+    public ServerCommandHandler(Map<String, String> users, Map<String, String> houses, Map<String, Map<String, String>> permissions, Map<String, Map<String, Integer>> deviceState, ServerNetwork serverNetwork) {
         Path current = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize();
 		Path projectRoot = current;
         this.users = users;
         this.houses = houses;
         this.permissions = permissions;
-        this.device = device;
         this.deviceState = deviceState;
 		PERMISSIONS_FILE = projectRoot.resolve("extras").resolve("Permissions.txt").toString();
     	HOUSES_FILE = projectRoot.resolve("extras").resolve("Houses.txt").toString();
@@ -398,7 +396,7 @@ public class ServerCommandHandler {
         } catch (NumberFormatException e) {
             return "NOK";
         }
-        if (value <= 1 || value > 600) {
+        if (value < 0 || value > 600) {
             return "NOK";
         }
         if (!houses.containsKey(house)) {
@@ -422,25 +420,22 @@ public class ServerCommandHandler {
     }
 
 
-    //TODO Método RT (Obtém ficheiro de texto)
+    //Método RT (Obtém ficheiro de texto)
     public String RT(String house, String user) {
-        // maybe return NOHM anyways even though user doesnt have permission??
-        if (!houses.containsKey(house)) {
-            return "NOHM";
-        }
-        if (!hasHouseAccess(house, user)){
-            return "NOPERM";
-        }
-        
+        if (!houses.containsKey(house)) return "NOHM";
+        if (!hasHouseAccess(house, user)) return "NOPERM";
+        Map<String, Integer> devices = deviceState.get(house);
+        if (devices == null || devices.isEmpty() || devices.keySet().stream().noneMatch(d -> hasDeviceAccess(house, user, d)))
+            return "NODATA";
         return "OK";
     }
 
     public void RT_sendFile(String house, String user) {
         // send the file resulting from the concatenation of all the devices logs that the user has access to in the given house
-        if (!houses.containsKey(house) || device.get(house) == null)
+        if (!houses.containsKey(house) || deviceState.get(house) == null)
             return; // maybe give an error? this should never happen as the caller should only call this after getting an OK from RT
 
-        File logFile = new File(LOG_DIR, house + ".csv"); // this is a temp file to send to the client (the server shouldn't save this maybe)
+//        File logFile = new File(LOG_DIR, house + ".csv"); // this is a temp file to send to the client (the server shouldn't save this maybe)
         List<String> allowedDevices = new LinkedList<>();
 
         deviceState.get(house).keySet().stream().filter(deviceName -> hasDeviceAccess(house, user, deviceName)).forEach(allowedDevices::add);
@@ -456,7 +451,7 @@ public class ServerCommandHandler {
                 files.add(new FileInputStream(f));
                 totalSize[0] += f.length();
             } catch (FileNotFoundException e) {
-                throw new RuntimeException(e);
+                e.printStackTrace();
             }
         });
         try (SequenceInputStream s = new SequenceInputStream(Collections.enumeration(files))) {
@@ -472,18 +467,17 @@ public class ServerCommandHandler {
 
     }
 
-    //Método RH (Obter histórico)
+    // Método RH (Obter histórico)
     public String historic(String house, String user, String device){
         if(!houses.containsKey(house)){
             return "NOHM";
         }
+        if (!hasDeviceAccess(house, user, device)) {
+            return "NOPERM";
+        }
         Map<String, Integer> devices = deviceState.get(house);
         if (devices == null || !devices.containsKey(device)) {
             return "NOD";
-        }
-        String section = deviceSection(device);
-        if(!checkPermissions(house, user, section)){
-            return "NOPERM";
         }
         File logFile = new File(LOG_DIR, house + "_" + device + ".csv");
         if (!logFile.exists()) {
@@ -498,17 +492,16 @@ public class ServerCommandHandler {
      * Sends the device log file to the client. Should only be called if the user has permissions to access
      * the device logs. It should only be called after calling RH and getting a return of "OK"
      *
-     * @param cmd cmd string with the house which the device belongs to
+     * @param house string house which the device belongs to
      * @param device device which log file should be sent
-     * @requires user must have permissions to access the device logs; otherwise the method should not be called
+     * @requires {@code user} must have permissions to access the device logs; otherwise the method should not be called
+     * @requires {@code house} to be valid
      */
-    public void RH_sendFile(String cmd, String device) {
-        // if cmd wasn't correct, it never should reach here
-        String[] parts = cmd.split(" ");
-        String house = parts[1];
-        
+    public void RH_sendFile(String house, String device) {
+
         serverNetwork.send("OK");
         // send file size (in the sendFile function already) and send file bytes
+
         File logFile = new File(LOG_DIR, house + "_" + device + ".csv");
         if (logFile.exists()) { 
             serverNetwork.sendFile(logFile.toPath());
@@ -547,9 +540,8 @@ public class ServerCommandHandler {
         if (cmd == null || cmd.trim().isEmpty()) {
             return "ERRO: Não colocaste o comando!";
         }
-        
-        cmd = cmd.trim();
-        String[] parts = cmd.split(" ");
+
+        String[] parts = cmd.trim().split("\\s+");
         System.out.println(parts);
         System.out.println(parts.length);
         String comando = parts[0].toUpperCase();

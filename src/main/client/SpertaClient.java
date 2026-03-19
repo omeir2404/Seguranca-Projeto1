@@ -2,9 +2,6 @@ package main.client;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.net.Socket;
 import java.util.Scanner;
 
 public class SpertaClient {
@@ -138,6 +135,7 @@ public class SpertaClient {
 
                 Object response = network.receive();
                 System.out.println(response);
+                // command = null;
             }
         }
     }

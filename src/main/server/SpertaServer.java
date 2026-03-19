@@ -46,17 +46,6 @@ public class SpertaServer extends Thread{
 		ATTESTATION_FILE = projectRoot.resolve("extras").resolve("attestation.txt").toString();
 	}
 
-	//     private boolean checkPermissions(String house, String user, String section) {
-
-    //     if (houses.containsKey(house) && houses.get(house).equals(user)) {
-    //         Map<String, String> housePermissions = permissions.get(house);
-    //         return housePermissions.containsKey(user) && housePermissions.get(user).equals(section);
-    //     }
-
-    //     return false;
-    // }
-
-
     private static int validateInput(String[] args){
 		int port = 0;
 		if (args.length > 1 || args.length < 0){
@@ -119,70 +108,70 @@ public class SpertaServer extends Thread{
 
 		}
 
-		// loadHousesFromFile();
-		// loadPermissionsFromFile();
+		loadHousesFromFile();
+		loadPermissionsFromFile();
 	}
 
-	// private static void loadHousesFromFile() {
-	// 	try (BufferedReader reader = new BufferedReader(new FileReader(HOUSES_FILE))) {
-	// 		String line;
-	// 		boolean firstLine = true;
+	private static void loadHousesFromFile() {
+		try (BufferedReader reader = new BufferedReader(new FileReader(HOUSES_FILE))) {
+			String line;
+			boolean firstLine = true;
 
-	// 		while ((line = reader.readLine()) != null) {
-	// 			if (firstLine) {
-	// 				firstLine = false;
-	// 				continue; // Skip header line (e.g., House:Owner)
-	// 			}
+			while ((line = reader.readLine()) != null) {
+				if (firstLine) {
+					firstLine = false;
+					continue; // Skip header line (e.g., House:Owner)
+				}
 
-	// 			line = line.trim();
-	// 			if (line.isEmpty()) {
-	// 				continue;
-	// 			}
+				line = line.trim();
+				if (line.isEmpty()) {
+					continue;
+				}
 
-	// 			String[] parts = line.split(":", 2);
-	// 			if (parts.length == 2) {
-	// 				String house = parts[0].trim();
-	// 				String owner = parts[1].trim();
-	// 				if (!house.isEmpty() && !owner.isEmpty()) {
-	// 					houses.put(house, owner);
-	// 				}
-	// 			}
-	// 		}
-	// 	} catch (IOException e) {
-	// 		System.err.println("Aviso ao ler " + HOUSES_FILE + ": " + e.getMessage());
-	// 	}
-	// }
+				String[] parts = line.split(":", 2);
+				if (parts.length == 2) {
+					String house = parts[0].trim();
+					String owner = parts[1].trim();
+					if (!house.isEmpty() && !owner.isEmpty()) {
+						houses.put(house, owner);
+					}
+				}
+			}
+		} catch (IOException e) {
+			System.err.println("Aviso ao ler " + HOUSES_FILE + ": " + e.getMessage());
+		}
+	}
 
-	// private static void loadPermissionsFromFile() {
-	// 	try (BufferedReader reader = new BufferedReader(new FileReader(PERMISSIONS_FILE))) {
-	// 		String line;
-	// 		boolean firstLine = true;
+	private static void loadPermissionsFromFile() {
+		try (BufferedReader reader = new BufferedReader(new FileReader(PERMISSIONS_FILE))) {
+			String line;
+			boolean firstLine = true;
 
-	// 		while ((line = reader.readLine()) != null) {
-	// 			if (firstLine) {
-	// 				firstLine = false;
-	// 				continue; // Skip header line (e.g., House:User:Section)
-	// 			}
+			while ((line = reader.readLine()) != null) {
+				if (firstLine) {
+					firstLine = false;
+					continue; // Skip header line (e.g., House:User:Section)
+				}
 
-	// 			line = line.trim();
-	// 			if (line.isEmpty()) {
-	// 				continue;
-	// 			}
+				line = line.trim();
+				if (line.isEmpty()) {
+					continue;
+				}
 
-	// 			String[] parts = line.split(":", 3);
-	// 			if (parts.length == 3) {
-	// 				String house = parts[0].trim();
-	// 				String user = parts[1].trim();
-	// 				String section = parts[2].trim();
-	// 				if (!house.isEmpty() && !user.isEmpty() && !section.isEmpty()) {
-	// 					permissions.computeIfAbsent(house, k -> new HashMap<>()).put(user, section);
-	// 				}
-	// 			}
-	// 		}
-	// 	} catch (IOException e) {
-	// 		System.err.println("Aviso ao ler " + PERMISSIONS_FILE + ": " + e.getMessage());
-	// 	}
-	// }
+				String[] parts = line.split(":", 3);
+				if (parts.length == 3) {
+					String house = parts[0].trim();
+					String user = parts[1].trim();
+					String section = parts[2].trim();
+					if (!house.isEmpty() && !user.isEmpty() && !section.isEmpty()) {
+						permissions.computeIfAbsent(house, k -> new HashMap<>()).put(user, section);
+					}
+				}
+			}
+		} catch (IOException e) {
+			System.err.println("Aviso ao ler " + PERMISSIONS_FILE + ": " + e.getMessage());
+		}
+	}
 
 	private static synchronized void appendUserToFile(String user, String pass) {
 		try (BufferedWriter writer = new BufferedWriter(new FileWriter(USERS_FILE, true))) {
@@ -370,13 +359,18 @@ public class SpertaServer extends Thread{
                 boolean connected = true;
                 while (connected) {
 					String cmdStr =  (String) network.receive();
-					if (cmdStr == null) break;
+					if (cmdStr == null){
+						break;
+					}
 					System.out.println("Comando de " + user + ": " + cmdStr);
 
 					String response = commandHandler.handleCommand(cmdStr, user);
 					if (cmdStr.contains("RH")) {
 						if (response.equals("OK")) {
-							commandHandler.RH_sendFile(cmdStr, user);
+							System.out.println("RH RETURNED OK");
+							String[] parts = cmdStr.trim().split("\\s+");
+							String device = parts[2];
+							commandHandler.RH_sendFile(cmdStr, device);
 						} else {
 							network.send(response);
 						}

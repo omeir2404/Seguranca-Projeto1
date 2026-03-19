@@ -2,3 +2,6 @@ House:User
 House1:Nexus
 house2:Nexus
 casinha:Nexus
+agua:Nexus
+c:Nexus
+u:Nexus

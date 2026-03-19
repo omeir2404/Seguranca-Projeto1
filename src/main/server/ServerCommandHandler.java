@@ -21,7 +21,7 @@ public class ServerCommandHandler {
     private static String HOUSE_METADATA_FILE = "extras/HouseMetadata.txt";
     private static String COUNTERS_FILE = "extras/SectionCounters.txt";
     private static String HOUSE_AUDIT_LOG = "logs/houses.log";
-    private static String LOG_DIR= "logs/";
+    private static final String LOG_DIR= "logs/";
     private static final DateTimeFormatter TS_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
     private ServerNetwork serverNetwork;
 
@@ -297,6 +297,7 @@ public class ServerCommandHandler {
         return String.valueOf(Character.toUpperCase(deviceName.charAt(0)));
     }
 
+
     //Método CREATE
     // TODO maybe verify for malicious input in the house name
     private String createHouse(String user, String house) {
@@ -328,13 +329,6 @@ public class ServerCommandHandler {
     
     //Método ADD
     private String addHouse(String user, String userAdd, String house, String section) {
-        System.out.println("######################CASINHAS############################");
-        for(String h : houses.keySet()){
-            System.out.print("UMA CASA: ");
-            System.out.println(h);
-        }
-        System.out.println("#######################END CASINHAS#######################");
-
         if (!houses.containsKey(house)) {
             return "NOHM";
         }
@@ -427,26 +421,6 @@ public class ServerCommandHandler {
         return "OK";
     }
 
-    private boolean checkPermissions(String house, String user, String section) {
-        System.out.println("HEHEHEHEHEHEHEHEHEHE    ");
-        if (!houses.containsKey(house)) {
-            System.out.println("House Doesnt exist, maybe its the voices");
-            return false;
-        }
-        if (user.equals(houses.get(house))) {
-            return true;
-        }
-        Map<String, String> housePermissions = permissions.get(house);
-        if (housePermissions == null || !housePermissions.containsKey(user)) {
-            System.out.println("House permissions are null OR user doesnt have permission");
-            return false;
-        }
-        return isAllowedSection(housePermissions.get(user), section);
-    }
-
-    private boolean hasDeviceAccess(String house, String user, String deviceName) {
-        return checkPermissions(house, user, deviceSection(deviceName));
-    }
 
     //TODO Método RT (Obtém ficheiro de texto)
     public String RT(String house, String user) {
@@ -504,31 +478,24 @@ public class ServerCommandHandler {
     }
 
     //Método RH (Obter histórico)
-    public String RH(String house, String user, String device) {   
-        System.out.println("COMANDO RH HANLER"); 
-        if (!houses.containsKey(house)) {
-            System.out.println("casa existe");
-            if (hasPermissionAssignment(house, user)) {
-                return "NOHM";
-            }
-            return "NOPERM";
-        }
-        System.out.println("HAHAHAHAHAHAHARTICUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU");
-        String section = deviceSection(device);
-        if (!checkPermissions(house, user, section)){
-            return "NOPERM";
-        }   
-        if (!deviceState.containsKey(house)){
+    public String historic(String house, String user, String device){
+        if(!houses.containsKey(house)){
             return "NOHM";
         }
-        if (!deviceState.get(house).containsKey(device)){
+        Map<String, Integer> devices = deviceState.get(house);
+        if (devices == null || !devices.containsKey(device)) {
             return "NOD";
-        }  
+        }
+        String section = deviceSection(device);
+        if(!checkPermissions(house, user, section)){
+            return "NOPERM";
+        }
         File logFile = new File(LOG_DIR, house + "_" + device + ".csv");
         if (!logFile.exists()) {
             System.out.println("No logs found for device " + device + " in house " + house);
             return "NODATA";
         }
+        
         return "OK";
     }
 
@@ -554,6 +521,31 @@ public class ServerCommandHandler {
             System.out.println("No logs found for device " + device + " in house " + house);
         }
     }
+
+
+//////////////////////////FUNÇÕES AUXILIARES/////////////////////////////////////////
+
+    private boolean checkPermissions(String house, String user, String section) {
+        if (!houses.containsKey(house)) {
+            System.out.println("House Doesnt exist, maybe its the voices");
+            return false;
+        }
+        if (user.equals(houses.get(house))) {
+            return true;
+        }
+        Map<String, String> housePermissions = permissions.get(house);
+        if (housePermissions == null || !housePermissions.containsKey(user)) {
+            System.out.println("House permissions are null OR user doesnt have permission");
+            return false;
+        }
+        return isAllowedSection(housePermissions.get(user), section);
+    }
+
+    private boolean hasDeviceAccess(String house, String user, String deviceName) {
+        return checkPermissions(house, user, deviceSection(deviceName));
+    }
+
+//////////////////////////FUNÇÕES AUXILIARES/////////////////////////////////////////
 
 
     public String handleCommand(String cmd, String user) {
@@ -611,7 +603,7 @@ public class ServerCommandHandler {
             }
             String house = parts[1];
             String device = parts[2];
-            return RH(house, user, device);
+            return historic(house, user, device);
         
         // Comando RT
         }else if (comando.equals("RT")) {
@@ -622,7 +614,8 @@ public class ServerCommandHandler {
             return RT(house, user);
         }
 
-
         return "ERRO: Comando desconhecido: " + comando;
     }
+
+
 }

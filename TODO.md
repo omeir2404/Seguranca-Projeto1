@@ -93,3 +93,10 @@
 - [ ] Submit zip in Moodle (one group member).
 - [ ] Complete individual contribution self-assessment on Moodle.
 - [ ] Final submission before deadline: 27 March, 23:59.
+
+
+## perguntar:
+- [x] Se os logs(e dados a persistir) é para fazer de forma que quermos ou se ha um formato especifico a seguir?
+        - [ ] RESPOSTA: Os Users e Attestation tem de ser como no enunciado(ja esta correto), o resto é como        acharemos melhores
+- [x] se enquanto o servidor tiver a correr, devia reconhecer novos utilizadores adicionados ao ficheiro a mao?
+        - [ ] RESPOSTA: É como nos queremos, nós temos o server a ler o ficheiro no inicio e a guardar a informacao, depois nao le mais vezes, so escreve em caso de New User

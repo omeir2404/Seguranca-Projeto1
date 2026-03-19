@@ -20,7 +20,7 @@ public class ServerCommandHandler {
     private static String HOUSE_METADATA_FILE = "extras/HouseMetadata.txt";
     private static String COUNTERS_FILE = "extras/SectionCounters.txt";
     private static String HOUSE_AUDIT_LOG = "logs/houses.log";
-    private static final String LOG_DIR= "logs/";
+    private static String LOG_DIR = "logs/";
     private static final DateTimeFormatter TS_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
     private ServerNetwork serverNetwork;
 
@@ -36,8 +36,8 @@ public class ServerCommandHandler {
         HOUSE_METADATA_FILE = projectRoot.resolve("extras").resolve("HouseMetadata.txt").toString();
         COUNTERS_FILE = projectRoot.resolve("extras").resolve("SectionCounters.txt").toString();
         HOUSE_AUDIT_LOG = projectRoot.resolve("logs").resolve("houses.log").toString();
+        LOG_DIR = projectRoot.resolve("logs").toString();
         this.serverNetwork = serverNetwork;
-
     }
 
     /**

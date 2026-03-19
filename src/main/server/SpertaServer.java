@@ -3,10 +3,11 @@ package main.server;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 public class SpertaServer extends Thread{
     
@@ -107,6 +108,108 @@ public class SpertaServer extends Thread{
 
 		loadHousesFromFile();
 		loadPermissionsFromFile();
+		rebuildDeviceStateFromPersistence();
+	}
+
+	private static void rebuildDeviceStateFromPersistence() {
+		Map<String, Integer> restoredPerHouse = new HashMap<>();
+		int totalRestored = 0;
+
+		for (String house : houses.keySet()) {
+			deviceState.putIfAbsent(house, new HashMap<>());
+			restoredPerHouse.putIfAbsent(house, 0);
+		}
+
+		Path logsDir = Paths.get(LOGS_DIR).toAbsolutePath().normalize();
+		if (!Files.exists(logsDir) || !Files.isDirectory(logsDir)) {
+			printRebuildSummary(restoredPerHouse, totalRestored);
+			return;
+		}
+
+		try (DirectoryStream<Path> stream = Files.newDirectoryStream(logsDir, "*.csv")) {
+			for (Path logPath : stream) {
+				String fileName = logPath.getFileName().toString();
+				if (!fileName.endsWith(".csv")) {
+					continue;
+				}
+
+				String baseName = fileName.substring(0, fileName.length() - 4);
+				int separator = baseName.lastIndexOf('_');
+				if (separator <= 0 || separator >= baseName.length() - 1) {
+					continue;
+				}
+
+				String house = baseName.substring(0, separator);
+				String device = baseName.substring(separator + 1);
+				if (!houses.containsKey(house)) {
+					continue;
+				}
+
+				int value = readLastDeviceValue(logPath, house, device);
+				Integer previous = deviceState.computeIfAbsent(house, k -> new HashMap<>()).put(device, value);
+				if (previous == null) {
+					restoredPerHouse.put(house, restoredPerHouse.getOrDefault(house, 0) + 1);
+					totalRestored++;
+				}
+			}
+		} catch (IOException e) {
+			System.err.println("Aviso ao reconstruir estado dos dispositivos: " + e.getMessage());
+		}
+
+		printRebuildSummary(restoredPerHouse, totalRestored);
+	}
+
+	private static void printRebuildSummary(Map<String, Integer> restoredPerHouse, int totalRestored) {
+		int housesLoaded = houses.size();
+		int housesWithRestoredDevices = 0;
+		List<String> sortedHouses = new ArrayList<>(houses.keySet());
+		Collections.sort(sortedHouses);
+
+		for (String house : sortedHouses) {
+			int restored = restoredPerHouse.getOrDefault(house, 0);
+			if (restored > 0) {
+				housesWithRestoredDevices++;
+			}
+			System.out.println("[startup][rebuild] house=" + house + " restoredDevices=" + restored);
+		}
+		System.out.println("[startup][rebuild] totalRestoredDevices=" + totalRestored);
+		System.out.println("[startup][rebuild] housesLoaded=" + housesLoaded + " housesWithRestoredDevices=" + housesWithRestoredDevices);
+	}
+
+	private static int readLastDeviceValue(Path logPath, String expectedHouse, String expectedDevice) {
+		int lastValue = 0;
+		try (BufferedReader reader = Files.newBufferedReader(logPath)) {
+			String line;
+			while ((line = reader.readLine()) != null) {
+				line = line.trim();
+				if (line.isEmpty() || line.startsWith("time;")) {
+					continue;
+				}
+
+				String[] csvParts = line.split(";", 2);
+				if (csvParts.length == 0) {
+					continue;
+				}
+
+				String[] cmdParts = csvParts[0].trim().split("\\s+");
+				if (cmdParts.length >= 4 && "EC".equalsIgnoreCase(cmdParts[0])) {
+					if (!expectedHouse.equals(cmdParts[1]) || !expectedDevice.equals(cmdParts[2])) {
+						continue;
+					}
+					try {
+						int parsed = Integer.parseInt(cmdParts[3]);
+						if (parsed >= 0 && parsed <= 600) {
+							lastValue = parsed;
+						}
+					} catch (NumberFormatException ignored) {
+						// Ignore malformed EC values and keep the last valid state.
+					}
+				}
+			}
+		} catch (IOException e) {
+			System.err.println("Aviso ao ler log de dispositivo " + logPath + ": " + e.getMessage());
+		}
+		return lastValue;
 	}
 
 	private static void loadHousesFromFile() {

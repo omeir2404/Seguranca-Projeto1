@@ -23,8 +23,8 @@
 ## Client CLI and Protocol Loop
 - [x] Show command menu after successful authentication.
 - [x] Implement command input loop until `CTRL+C`.
-- [ ] Send each command request to main.server and print reply.
-- [ ] Validate malformed input and show user-friendly errors.
+- [x] Send each command request to main.server and print reply.
+- [x] Validate malformed input and show user-friendly errors.
 
 ## Command: CREATE
 - [x] Implement `CREATE <hm>` on main.server.
@@ -44,39 +44,41 @@
 - [x] Maintain per-section device counters starting at `1`.
 - [x] Generate device IDs from section letter + counter.
 - [x] Return one of: `OK`, `NOPERM`, `NOHM`.
-- [ ] Persist counters and devices.
+- [ ] **CRITICAL**: Increment and persist counters in `SectionCounters.txt` on each successful RD.
+- [ ] Register device with initial state `0` in `DeviceState.txt` (latest states file).
 
 ## Command: EC
 - [x] Implement `EC <hm> <d> <int>`.
-- [x] ValsendIntidate state/temporization values: `0`, `1`, `2..600`.
+- [x] Validate state/temporization values: `0`, `1`, `2..600`.
 - [ ] Enforce user permissions before changing device state.
 - [x] Return one of: `OK`, `NOK`, `NOHM`, `NOD`, `NOPERM`.
-- [ ] Persist latest state per device.
+- [ ] **CRITICAL**: Persist latest state to `DeviceState.txt` after update (format: `Casa1:M1=45`).
 - [x] Append timestamped rows to per-device `.csv` history.
 
 ## Command: RT
-- [ ] Implement `RT <hm>`.
-- [ ] Build data file containing latest command per accessible device.
-- [ ] Use protocol: `OK` + `LONG size` + file bytes.
-- [ ] Return one of: `NODATA`, `NOHM`, `NOPERM` when invalid.
-- [ ] Save received file locally on main.client.
+- [x] Implement `RT <hm>`.
+- [ ] Build data file containing latest command per accessible device (currently sends full logs).
+- [x] Use protocol: `OK` + `LONG size` + file bytes.
+- [x] Return one of: `NODATA`, `NOHM`, `NOPERM` when invalid.
+- [x] Save received file locally on main.client.
 
 ## Command: RH
-- [ ] Implement `RH <hm> <d>`.
-- [ ] Return device history `.csv` using `OK` + `LONG size` + file bytes.
-- [ ] Return one of: `NODATA`, `NOHM`, `NOD`, `NOPERM` when invalid.
-- [ ] Save received file locally on main.client.
+- [x] Implement `RH <hm> <d>`.
+- [x] Return device history `.csv` using `OK` + `LONG size` + file bytes.
+- [x] Return one of: `NODATA`, `NOHM`, `NOD`, `NOPERM` when invalid.
+- [x] Save received file locally on main.client.
 
-## Server Persistence
-- [x] Maintain users/passwords file.
-- [ ] Maintain homes/devices/permissions file.
-- [ ] Maintain latest state/temporization file.
-- [ ] Maintain per-device `.csv` logs.
-- [ ] Maintain section-counter file(s).
+## Server Persistence (Spec Required Files)
+- [x] **Users.txt** - maintains user credentials (User:password).
+- [x] **attestation.txt** - maintains client app hash reference (SpertaClient:<size>).
+- [ ] **Houses.txt** - should store house + owner (currently correct).
+- [ ] **Permissions.txt** - stores user permissions per house (currently separate file).
+- [ ] **SectionCounters.txt** - **CRITICAL**: Must increment counters on RD, not just on CREATE.
+- [ ] **DeviceState.txt** - NEW: Must persist latest device state/timer values (Casa1:M1=45; Casa1:M2=0).
+- [x] **logs/HOUSE_DEVICE.csv** - per-device history with timestamp + command.
 
-## EXTRAS
-- [ ] Show houses comand -"ls"
-- [ ] 
+## EXTRAS (Non-spec features)
+- [x] LS command - list houses/devices accessible to user (bonus, not in spec). 
 
 ## Robustness and Error Handling
 - [ ] Handle multiple simultaneous TCP clients. 
@@ -117,8 +119,65 @@
 - [ ] `RD` e logs tem de ser estruturadas melhor
 - [ ] `RT` devia enviar `NODATA` se nao houve mudanca -> aberto a interpretacao??
 - [ ] confirmar que `Attestation` pode ser feito no makefile ou se temos de fazer de outra forma 
-- [ ] `Insere aqui o comando: add Eclipse casa pall` Deu `OK` e assumiu permissoes == `P`
+- [ ] `Insere aqui o comando: add Eclipse casa pall` Deu `OK` e assumiu Secao == `P`
 - [ ] `ls <home>` nao funciona com permissoes == `all`
 
 
 ## LOG structure
+
+### 1.Persistence 
+This visualization shows how to organize your `server_data` root folder. Using a nested structure for devices makes searching for specific logs much faster.
+
+```text
+server_data/
+├── auth/
+│   ├── users.txt                # <user-id>:<password>  
+│   └── attestation.txt          # <app-name>:<size>  
+├── metadata/
+│   ├── homes_registry.txt       # <home>:<owner>:<permissions> 
+│   └── section_counters.txt     # <home>:<section>:<next_id> 
+├── states/
+│   └── last_commands.txt        # <home>:<device>:<value>
+└── homes/                       # Root for houses 
+    ├── Casa1/
+    │   ├── Electros/
+    │   ├── Garden/
+    │   ├── Luzes/               # Contains L1.csv, L2.csv, etc. 
+    │   ├── Multimedia/          # Contains M1.csv, M2.csv 
+    │   ├── Portas/              # Contains P1.csv, P2.csv 
+    │   └── Stores/
+    ├── Casa2/
+    │   └── ... (same subfolders)
+    └── Casa3/
+        └── ... (same subfolders)
+
+```
+
+### 2. File Examples & Formats
+
+
+#### **B. Permissions & Metadata (New Recommended Structure)**
+To handle the `ADD` command effectively, you need a way to track who can do what.
+* **`homes_registry.txt`**: 
+    > `Format -> Home:Owner:User1=Perms;User2=Perms`
+    > `Casa1:iberia:alan=M,L` 
+    > `Casa2:iberia:alan=all;nuno=G` 
+
+* **`section_counters.txt`**: Required to know the next ID when a user runs `RD <hm> <s>`.
+    > `Casa1:M:3` (Next Multimedia device in Casa1 will be M3)
+    > `Casa1:L:2`
+
+#### **C. History and State**
+* **`last_commands.txt`**: Used for the `RT <hm>` command to quickly show current status without parsing every CSV.
+    > `Casa1:M1:45` 
+    > `Casa1:L1:30` 
+
+* **`device_logs (CSV)`**: Specifically for the `RH <hm> <d>` command.
+    > `Timestamp,Operation,Value` 
+    > `2026-03-20 14:00:01,ON,1`
+    > `2026-03-20 14:30:00,TIMER,45`
+
+
+### Implementation Tip for Java
+ `Files.createDirectories()` when a user creates a new house or registers a device in a new section. 
+

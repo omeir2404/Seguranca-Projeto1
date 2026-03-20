@@ -77,6 +77,8 @@
 - [ ] **DeviceState.txt** - NEW: Must persist latest device state/timer values (Casa1:M1=45; Casa1:M2=0).
 - [x] **logs/HOUSE_DEVICE.csv** - per-device history with timestamp + command.
 
+
+
 ## EXTRAS (Non-spec features)
 - [x] LS command - list houses/devices accessible to user (bonus, not in spec). 
 
@@ -129,27 +131,30 @@
 This visualization shows how to organize your `server_data` root folder. Using a nested structure for devices makes searching for specific logs much faster.
 
 ```text
-server_data/
-├── auth/
-│   ├── users.txt                # <user-id>:<password>  
-│   └── attestation.txt          # <app-name>:<size>  
-├── metadata/
-│   ├── homes_registry.txt       # <home>:<owner>:<permissions> 
-│   └── section_counters.txt     # <home>:<section>:<next_id> 
-├── states/
-│   └── last_commands.txt        # <home>:<device>:<value>
-└── homes/                       # Root for houses 
-    ├── Casa1/
-    │   ├── Electros/
-    │   ├── Garden/
-    │   ├── Luzes/               # Contains L1.csv, L2.csv, etc. 
-    │   ├── Multimedia/          # Contains M1.csv, M2.csv 
-    │   ├── Portas/              # Contains P1.csv, P2.csv 
-    │   └── Stores/
-    ├── Casa2/
-    │   └── ... (same subfolders)
-    └── Casa3/
-        └── ... (same subfolders)
+
+│
+├── server_data/                 # Persistence for the Server 
+│   ├── auth/
+│   │   ├── users.txt            # <user-id>:<password> 
+│   │   └── attestation.txt      # SpertaClient:<size> 
+│   ├── metadata/
+│   │   ├── homes_registry.txt   # <home>:<owner>:<permissions> 
+│   │   └── section_counters.txt # <home>:<section>:<next_id> 
+│   ├── states/
+│   │   └── last_commands.txt    # <home>:<device>:<value> 
+│   └── homes/                   # Directory for device logs 
+│       └── Casa1/               # Folder per house 
+│           ├── Electros/        # Section folders 
+│           ├── Garden/
+│           ├── Luzes/           # Contains L1.csv, L2.csv 
+│           ├── Multimedia/      # Contains M1.csv, M2.csv 
+│           ├── Portas/
+│           └── Stores/
+│
+└── client_data/                 # Local storage for the Client 
+    └── <user-id>/               # Separate folders per user (optional but recommended)
+        ├── status_Casa1.txt     # Result from RT Casa1 
+        └── history_M1_Casa1.csv # Result from RH Casa1 M1 
 
 ```
 

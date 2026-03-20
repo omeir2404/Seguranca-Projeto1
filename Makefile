@@ -55,3 +55,6 @@ re: clean compile
 clean:
 	@rm -rf $(BIN_DIR)
 	@rm -rf *.class
+
+cleanFULL: clean
+	@rm -rf

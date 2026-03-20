@@ -18,7 +18,7 @@
 - [x] Implement auth outcomes: `WRONG-PWD`, `OK-NEW-USER`, `OK-USER`.
 - [x] On `WRONG-PWD`, allow main.client password retry.
 - [x] Persist users and passwords on main.server text file.
-- [ ] server needs to be restared to recognize new users added to text file -- new issue
+<!-- - [ ] server needs to be restared to recognize new users added to text file -- new issue (Optional according to prof) -->
 
 ## Client CLI and Protocol Loop
 - [x] Show command menu after successful authentication.
@@ -30,13 +30,13 @@
 - [x] Implement `CREATE <hm>` on main.server.
 - [x] Return `OK` when home is created.
 - [x] Return `NOK` when home already exists.
-- [ ] Persist home owner and metadata.
+- [x] Persist home owner and metadata.
 
 ## Command: ADD
 - [x] Implement `ADD <user1> <hm> <s>`.
 - [x] Allow section permission by section letter or full house with `all`.
 - [x] Return one of: `OK`, `NOPERM`, `NOHM`, `NOUSER`.
-- [ ] Persist permission updates.
+- [x] Persist permission updates.
 
 ## Command: RD
 - [x] Implement `RD <hm> <s>`.
@@ -100,3 +100,25 @@
         - [ ] RESPOSTA: Os Users e Attestation tem de ser como no enunciado(ja esta correto), o resto é como        acharemos melhores
 - [x] se enquanto o servidor tiver a correr, devia reconhecer novos utilizadores adicionados ao ficheiro a mao?
         - [ ] RESPOSTA: É como nos queremos, nós temos o server a ler o ficheiro no inicio e a guardar a informacao, depois nao le mais vezes, so escreve em caso de New User
+
+
+## Bugs e Erros encontrados
+- [ ] No `CREATE` fazer a estrutura recomendada no enunciado para cada casa -> CADA DISPOSITIVO TEM DE TER UM FICHEIRO CSV
+      "Cada dispositivo tem 
+      um ficheiro de log, no formato csv, o qual contém o seu histórico de funcionamento, ou seja, regista 
+      todos  os  comandos  de  operação  (ligado,  ligado  com  temporização  ou  desligado)  do  dispositivo, 
+      incluindo a data e hora da sua ocorrência."
+- [ ] `EC` nao esta a funcionar corretamente
+- [ ] `RT` e `RH` nao guarda os ficheiros no lugar correto
+- [ ] Section counters nunca sao atualizadas no ficheiro (so atualisa na memoria entoa se o server parar perde se os dados )(servercomandhandler -> 180 - 220)
+- [ ] seccoes novas sao criadas com `RD` (ou nao deixamos que aconteca ou atualizamos os logs para os incluir)
+- [ ] `RD` so ve a primeira letra do input (RD casa1 hahah -> assume seccao = H)
+- [ ] `RT` é suposto enviar os logs mais recentes por dispositivo mas enviamos TUDO (servercomandhandler -> 458 - 500)
+- [ ] `RD` e logs tem de ser estruturadas melhor
+- [ ] `RT` devia enviar `NODATA` se nao houve mudanca -> aberto a interpretacao??
+- [ ] confirmar que `Attestation` pode ser feito no makefile ou se temos de fazer de outra forma 
+- [ ] `Insere aqui o comando: add Eclipse casa pall` Deu `OK` e assumiu permissoes == `P`
+- [ ] `ls <home>` nao funciona com permissoes == `all`
+
+
+## LOG structure

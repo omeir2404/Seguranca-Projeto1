@@ -14,7 +14,6 @@ public class ServerCommandHandler {
     private Map<String, Map<String, String>> permissions;
     private Map<String, Map<String, Integer>> deviceState;
 
-
     private static String HOUSES_FILE = "extras/Houses.txt";
 	private static String PERMISSIONS_FILE = "extras/Permissions.txt";
     private static String HOUSE_METADATA_FILE = "extras/HouseMetadata.txt";
@@ -41,10 +40,7 @@ public class ServerCommandHandler {
         this.serverNetwork = serverNetwork;
     }
 
-    /**
-     * makes the logs for a single device, if the file doesnt exist yet it is created with a header `time; command `
-     *
-      */
+
     private void updateDeviceLogs(String command, String house, String device){
         // the logs should be one per device, all in csv and with a header (time; command (turn on, turn on with timer, turn off))
         try {
@@ -102,7 +98,12 @@ public class ServerCommandHandler {
         }
 
         String[] lines = content.split("\\R", 2);
-        String firstLine = lines.length > 0 ? lines[0].trim() : "";
+        String firstLine;
+        if (lines.length > 0) {
+            firstLine = lines[0].trim();
+        } else {
+            firstLine = "";
+        }
         if (!header.equalsIgnoreCase(firstLine)) {
             Files.writeString(
                     logPath,
@@ -122,7 +123,12 @@ public class ServerCommandHandler {
         }
 
         boolean empty = Files.size(path) == 0L;
-        String payload = empty ? line : System.lineSeparator() + line;
+        String payload;
+        if (empty) {
+            payload = line;
+        } else {
+            payload = System.lineSeparator() + line;
+        }
         Files.writeString(path, payload, StandardCharsets.UTF_8, StandardOpenOption.APPEND);
     }
 
@@ -134,7 +140,6 @@ public class ServerCommandHandler {
 
             StringBuilder content = new StringBuilder("House:User:Section");
 
-            // Sort houses alphabetically for stable output
             List<String> sortedHouses = new ArrayList<>(permissions.keySet());
             Collections.sort(sortedHouses);
 
@@ -144,7 +149,6 @@ public class ServerCommandHandler {
                     continue;
                 }
 
-                // Sort users alphabetically for stable output within each house
                 List<String> sortedUsers = new ArrayList<>(housePermissions.keySet());
                 Collections.sort(sortedUsers);
 
@@ -173,14 +177,13 @@ public class ServerCommandHandler {
             Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
             return true;
         } catch (IOException e) {
-            System.err.println("Erro ao persistir permissoes: " + e.getMessage());
+            System.err.println("Erro ao persistir permissões: " + e.getMessage());
             return false;
         }
     }
 
     private Map<String, Integer> initialSectionCounters() {
         Map<String, Integer> counters = new LinkedHashMap<>();
-        // Covers sections used in the project text/examples.
         counters.put("M", 1);
         counters.put("G", 1);
         counters.put("L", 1);
@@ -257,16 +260,12 @@ public class ServerCommandHandler {
         return String.join(",", sections);
     }
 
-    private boolean hasPermissionAssignment(String house, String user) {
-        Map<String, String> housePermissions = permissions.get(house);
-        return housePermissions != null && housePermissions.containsKey(user);
-    }
-
     private boolean hasHouseAccess(String house, String user) {
         if (houses.containsKey(house) && user.equals(houses.get(house))) {
             return true;
         }
-        return hasPermissionAssignment(house, user);
+        Map<String, String> housePermissions = permissions.get(house);
+        return housePermissions != null && housePermissions.containsKey(user);
     }
 
     private boolean isAllowedSection(String granted, String requestedSection) {
@@ -319,10 +318,12 @@ public class ServerCommandHandler {
         Map<String, String> housePermissions = permissions.computeIfAbsent(house, k -> new HashMap<>());
         housePermissions.put(user, "all");
         if (!persistPermissionsSnapshot()) {
-            System.err.println("Aviso: ficheiro de permissoes pode estar desatualizado apos CREATE.");
+            System.err.println("Aviso: Ficheiro de permissões pode estar desatualizado após CREATE.");
         }
 
-        deviceState.computeIfAbsent(house, k -> new HashMap<>());
+        if (!deviceState.containsKey(house)) {
+            deviceState.put(house, new HashMap<>());
+        }
 
         return "OK";
     }
@@ -340,15 +341,18 @@ public class ServerCommandHandler {
             return "NOPERM";
         }
 
-        Map<String, String> housePermissions = permissions.computeIfAbsent(house, k -> new HashMap<>());
+        Map<String, String> housePermissions = permissions.get(house);
+        if (housePermissions == null) {
+            housePermissions = new HashMap<>();
+            permissions.put(house, housePermissions);
+        }
 
         String normalized = normalizePermissionValue(section);
         if (normalized != null) {
-            // Owner assignment replaces any previous permission set for that user.
             housePermissions.put(userAdd, normalized);
         }
         if (!persistPermissionsSnapshot()) {
-            System.err.println("Aviso: ficheiro de permissoes pode estar desatualizado apos ADD.");
+            System.err.println("Aviso: Ficheiro de permissões pode estar desatualizado após ADD.");
         }
         
         return "OK";
@@ -366,7 +370,11 @@ public class ServerCommandHandler {
 
         String sectionLetter = String.valueOf(Character.toUpperCase(section.charAt(0)));
 
-        Map<String, Integer> devices = deviceState.computeIfAbsent(house, k -> new HashMap<>());
+        Map<String, Integer> devices = deviceState.get(house);
+        if (devices == null) {
+            devices = new HashMap<>();
+            deviceState.put(house, devices);
+        }
 
         int count = 0;
         for (String dev : devices.keySet()) {
@@ -377,45 +385,13 @@ public class ServerCommandHandler {
 
         String deviceName = sectionLetter + (count + 1);
         devices.put(deviceName, 0);
-        // logging creation of device
-        // RD <hm> <s>
+  
         updateDeviceLogs("RD " + house + " " + section, house, deviceName);
         return "OK";
     }
 
-    //Método EC (Enviar valor)
-    // public String sendInt(String user, String house, String device, String valueStr){
-    //     if (device != null) {
-    //         device = device.toUpperCase();
-    //     }
-    //     int value;
-    //     try {
-    //         value = Integer.parseInt(valueStr);
-    //     } catch (NumberFormatException e) {
-    //         return "NOK";
-    //     }
-    //     if (value < 0 || value > 600) {
-    //         return "NOK";
-    //     }
-    //     if (!houses.containsKey(house)) {
-    //         return hasPermissionAssignment(house, user) ? "NOHM" : "NOPERM";
-    //     }
-    //     if (!hasHouseAccess(house, user) || !hasDeviceAccess(house, user, device)) {
-    //         return "NOPERM";
-    //     }
-    //     Map<String, Integer> devices = deviceState.get(house);
-    //     if (devices == null || !devices.containsKey(device)) {
-    //         return "NOD";
-    //     }
-    //     if (!hasDeviceAccess(house, user, device)) {
-    //         return "NOPERM";
-    //     }
-    //     devices.put(device, value);
-    //     // EC <hm> <d> <int>
-    //     updateDeviceLogs("EC " + house + " " + device + " " + value, house, device);
-    //     return "OK";
-    // }
-        public String sendInt(String user, String house, String device, String valueStr){
+    // Método EC (Enviar valor)
+    public String sendInt(String user, String house, String device, String valueStr){
         if (device != null) {
             device = device.toUpperCase();
         }
@@ -439,7 +415,7 @@ public class ServerCommandHandler {
             return "NOPERM";
         }
         devices.put(device, value);
-        //EC <hm> <d> <int>
+
         updateDeviceLogs("EC " + house + " " + device + " " + value, house, device);
         return "OK";
     }   
@@ -447,26 +423,34 @@ public class ServerCommandHandler {
 
     //Método RT (Obtém ficheiro de texto)
     public String RT(String house, String user) {
-        if (!houses.containsKey(house)) return "NOHM";
-        if (!hasHouseAccess(house, user)) return "NOPERM";
+        if (!houses.containsKey(house)){
+            return "NOHM";
+        }
+        if (!hasHouseAccess(house, user)){
+            return "NOPERM"; 
+        } 
         Map<String, Integer> devices = deviceState.get(house);
-        if (devices == null || devices.isEmpty() || devices.keySet().stream().noneMatch(d -> hasDeviceAccess(house, user, d)))
+        if (devices == null || devices.isEmpty() || devices.keySet().stream().noneMatch(d -> hasDeviceAccess(house, user, d))){
             return "NODATA";
+        }
+            
         return "OK";
     }
 
     public void RT_sendFile(String house, String user) {
-        // send the file resulting from the concatenation of all the devices logs that the user has access to in the given house
-        if (!houses.containsKey(house) || deviceState.get(house) == null)
-            return; // maybe give an error? this should never happen as the caller should only call this after getting an OK from RT
+        if (!houses.containsKey(house) || deviceState.get(house) == null){
+            return;
+        }
 
-//        File logFile = new File(LOG_DIR, house + ".csv"); // this is a temp file to send to the client (the server shouldn't save this maybe)
         List<String> allowedDevices = new LinkedList<>();
 
-        deviceState.get(house).keySet().stream().filter(deviceName -> hasDeviceAccess(house, user, deviceName)).forEach(allowedDevices::add);
+        for (String deviceName : deviceState.get(house).keySet()) {
+            if (hasDeviceAccess(house, user, deviceName)) {
+                allowedDevices.add(deviceName);
+            }
+        }
 
-        // sort devices alphabetically for stable output (not really needed, but for safety and testing purposes, it's better to have a deterministic order of the concatenation of the logs)
-        allowedDevices.sort(String::compareTo);
+        Collections.sort(allowedDevices);
         File lineSeparatorFile = new File(LOG_DIR, "lineSeparator.txt");
         try {
             if (!lineSeparatorFile.exists()) {
@@ -481,16 +465,14 @@ public class ServerCommandHandler {
             try {
                 File f = new File(LOG_DIR, fileName);
                 files.add(new FileInputStream(f));
-                files.add(new FileInputStream(lineSeparatorFile)); // make sure the files have a line separator between them
+                files.add(new FileInputStream(lineSeparatorFile)); 
                 totalSize[0] += f.length() + lineSeparatorFile.length();
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
             }
         });
         try (SequenceInputStream s = new SequenceInputStream(Collections.enumeration(files))) {
-            // send OK
             serverNetwork.send("OK");
-            // send file size (in the sendFile function already) and send file bytes
             serverNetwork.sendFile(s, totalSize[0]);
 
         } catch (IOException e) {
@@ -517,35 +499,26 @@ public class ServerCommandHandler {
         }
         File logFile = new File(LOG_DIR, house + "_" + device + ".csv");
         if (!logFile.exists()) {
-            System.out.println("No logs found for device " + device + " in house " + house);
+            System.out.println("Nenhum log encontrado para o dispositivo: " + device + " na casa: " + house);
             return "NODATA";
         }
         
         return "OK";
     }
 
-    /**
-     * Sends the device log file to the client. Should only be called if the user has permissions to access
-     * the device logs. It should only be called after calling RH and getting a return of "OK"
-     *
-     * @param house string house which the device belongs to
-     * @param device device which log file should be sent
-     * @requires {@code user} must have permissions to access the device logs; otherwise the method should not be called
-     * @requires {@code house} to be valid
-     */
+ 
     public void RH_sendFile(String house, String device) {
         if (device != null) {
             device = device.toUpperCase();
         }
 
         serverNetwork.send("OK");
-        // send file size (in the sendFile function already) and send file bytes
 
         File logFile = new File(LOG_DIR, house + "_" + device + ".csv");
         if (logFile.exists()) { 
             serverNetwork.sendFile(logFile.toPath());
         } else {
-            System.out.println("No logs found for device " + device + " in house " + house);
+            System.out.println("Nenhum log encontrado para o dispositivo: " + device + " na casa: " + house);
         }
     }
 
@@ -554,7 +527,7 @@ public class ServerCommandHandler {
 
     private boolean checkPermissions(String house, String user, String section) {
         if (!houses.containsKey(house)) {
-            System.out.println("House Doesnt exist, maybe its the voices");
+            System.out.println("A casa não existe.");
             return false;
         }
         if (user.equals(houses.get(house))) {
@@ -562,7 +535,7 @@ public class ServerCommandHandler {
         }
         Map<String, String> housePermissions = permissions.get(house);
         if (housePermissions == null || !housePermissions.containsKey(user)) {
-            System.out.println("House permissions are null OR user doesnt have permission");
+            System.out.println("As permissões da casa são null ou o utilizador não tem permissão.");
             return false;
         }
         return isAllowedSection(housePermissions.get(user), section);
@@ -577,7 +550,7 @@ public class ServerCommandHandler {
 
     public String handleCommand(String cmd, String user) {
         if (cmd == null || cmd.trim().isEmpty()) {
-            return "ERRO: Não colocaste o comando!";
+            return "ERRO: Não colocou o comando!";
         }
 
         String[] parts = cmd.trim().split("\\s+");
@@ -587,11 +560,10 @@ public class ServerCommandHandler {
     
         // Comando CREATE
         switch (comando) {
-
             case "LS" -> {
                 if (parts.length > 2) {
                     return "Erro: O correto é: LS ou LS <hm>";
-                } // command for all the houses
+                }
                 else if (parts.length == 1) {
                     return lsCommand(user, null);
                 } else {
@@ -619,11 +591,9 @@ public class ServerCommandHandler {
                 String section = parts[3];
                 return addHouse(user, userAdd, house, section);
 
-                // Comando RD
+            // Comando RD
             }
             case "RD" -> {
-                System.out.println("RD CALLED");
-                System.out.println(Arrays.toString(parts));
                 if (parts.length != 3) {
                     return "ERRO: O correto é:  RD <hm> <s>";
                 }
@@ -631,7 +601,7 @@ public class ServerCommandHandler {
                 String section = parts[2];
                 return registerDevice(user, house, section);
 
-                // Comando EC
+            // Comando EC
             }
             case "EC" -> {
                 if (parts.length != 4) {
@@ -642,7 +612,7 @@ public class ServerCommandHandler {
                 String value = parts[3];
                 return sendInt(user, house, device, value);
 
-                // Comando RH
+            // Comando RH
             }
             case "RH" -> {
                 if (parts.length != 3) {
@@ -652,7 +622,7 @@ public class ServerCommandHandler {
                 String device = parts[2];
                 return historic(house, user, device);
 
-                // Comando RT
+            // Comando RT
             }
             case "RT" -> {
                 if (parts.length != 2) {
@@ -666,13 +636,7 @@ public class ServerCommandHandler {
         return "ERRO: Comando desconhecido: " + comando;
     }
 
-    /**
-     * Lists the houses that the user has access to, and if a house is specified, lists the devices in that house that the user has access to, with their current state.
-     *
-     * @param user  user that wants to list
-     * @param house house that the user wants to list devices from
-     * @return a string with the houses and devices that the user has access to, or an error message if the user has no access to any house or the specified house doesn't exist or the user has no access to the specified house
-     */
+    //Lists the houses that the user has access to, and if a house is specified, lists the devices in that house that the user has access to, with their current state.
     private String lsCommand(String user, String house) {
         if (house != null) {
             if (!houses.containsKey(house)) {
@@ -691,7 +655,6 @@ public class ServerCommandHandler {
             });
             return result.toString();
         } else {
-            // list all houses that the user has access to
             StringBuilder result = new StringBuilder();
             houses.keySet().stream().filter(h -> hasHouseAccess(h, user)).forEach(h -> result.append(h).append("\n"));
             if (result.isEmpty()) {

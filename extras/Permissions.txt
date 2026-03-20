@@ -1,3 +1,7 @@
 House:User:Section
+casa:Eclipse:P
 casa:Nexus:all
+fcul:Eclipse:all
+fcul:Nexus:all
+lama:Arti:P
 lama:Nexus:all

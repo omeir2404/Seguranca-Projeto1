@@ -2,3 +2,4 @@ House:Section=NextCounter
 
 casa:M=1,G=1,L=1,P=1,B=1,E=1
 lama:M=1,G=1,L=1,P=1,B=1,E=1
+fcul:M=1,G=1,L=1,P=1,B=1,E=1

@@ -8,7 +8,7 @@ SERVER_CLASS = main.server.SpertaServer
 SERVER_ARGS = 2223
 CLIENT_CLASS = main.client.SpertaClient
 CLIENT_ARGS = 127.0.0.1:2223 Nexus ehBueFixe
-CLIENT_ARGS2 = 127.0.0.1:2223 User pass
+CLIENT_ARGS2 = 127.0.0.1:2223 Eclipse ATuaMae
 CLIENT_WRONG_ARGS = 127.0.0.1:2223 Nexus Eclipsew
 CLIENT_ARGS_NO_PORT = 127.0.0.1 Nexus ehBueFixe
 

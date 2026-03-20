@@ -56,11 +56,11 @@ public class SpertaServer extends Thread{
 		try {
 			port = Integer.parseInt(args[0]);
 		} catch (Exception e) {
-			System.out.println("A porta tem de ser de tipo Integer");
+			System.out.println("A porta tem de ser de tipo Integer.");
 			System.exit(-1);
 		}
-		if (port < 1024 || port > 65523) {
-			System.err.println("A porta tem de estar entre 1024 e 65535");
+		if (port < 1024 || port > 65535) {
+			System.err.println("A porta tem de estar entre 1024 e 65535.");
 			System.exit(-1);
 		}
 		return port;
@@ -80,7 +80,7 @@ public class SpertaServer extends Thread{
 			while ((line = reader.readLine()) != null) {
 				if (firstLine) {
 					firstLine = false;
-					continue; // Skip header line (e.g., User:pass)
+					continue;
 				}
 
 				line = line.trim();
@@ -145,7 +145,14 @@ public class SpertaServer extends Thread{
 				}
 
 				int value = readLastDeviceValue(logPath, house, device);
-				Integer previous = deviceState.computeIfAbsent(house, k -> new HashMap<>()).put(device, value);
+
+				Map<String, Integer> houseDevices = deviceState.get(house);
+				if (houseDevices == null) {
+					houseDevices = new HashMap<>();
+					deviceState.put(house, houseDevices);
+				}
+				Integer previous = houseDevices.put(device, value);
+
 				if (previous == null) {
 					restoredPerHouse.put(house, restoredPerHouse.getOrDefault(house, 0) + 1);
 					totalRestored++;
@@ -179,7 +186,7 @@ public class SpertaServer extends Thread{
 				Files.writeString(logPath, "time; command" + System.lineSeparator() + content);
 			}
 		} catch (IOException e) {
-			System.err.println("Erro ao normalizar cabecalho do log " + logPath + ": " + e.getMessage());
+			System.err.println("Erro ao normalizar cabeçalho do log " + logPath + ": " + e.getMessage());
 		}
 	}
 
@@ -252,9 +259,12 @@ public class SpertaServer extends Thread{
 			return null;
 		}
 
-		// Backward compatibility for command-only lines.
 		String raw = line.trim();
-		return raw.toUpperCase().startsWith("EC ") ? raw : null;
+		String upperRaw = raw.toUpperCase();
+		if (upperRaw.startsWith("EC ")) {
+			return raw;
+		}
+		return null;
 	}
 
 	private static void loadHousesFromFile() {
@@ -265,7 +275,7 @@ public class SpertaServer extends Thread{
 			while ((line = reader.readLine()) != null) {
 				if (firstLine) {
 					firstLine = false;
-					continue; // Skip header line (e.g., House:Owner)
+					continue;
 				}
 
 				line = line.trim();
@@ -295,7 +305,7 @@ public class SpertaServer extends Thread{
 			while ((line = reader.readLine()) != null) {
 				if (firstLine) {
 					firstLine = false;
-					continue; // Skip header line (e.g., House:User:Section)
+					continue;
 				}
 
 				line = line.trim();
@@ -309,7 +319,12 @@ public class SpertaServer extends Thread{
 					String user = parts[1].trim();
 					String section = parts[2].trim();
 					if (!house.isEmpty() && !user.isEmpty() && !section.isEmpty()) {
-						permissions.computeIfAbsent(house, k -> new HashMap<>()).put(user, section);
+					Map<String, String> housePerms = permissions.get(house);
+					if (housePerms == null) {
+						housePerms = new HashMap<>();
+						permissions.put(house, housePerms);
+					}
+					housePerms.put(user, section);
 					}
 				}
 			}
@@ -343,12 +358,11 @@ public class SpertaServer extends Thread{
     	server.startServer(port);
     }
 
-    //Iniciar Servidor
-    public void startServer (int port){
-        System.out.println("0 mais rápido clientes...");
+	public void startServer(int port){
+        System.out.println("À espera de clientes...");
 
         try {
-            serverSocket = new ServerSocket(port); // porta do servidor
+            serverSocket = new ServerSocket(port);
         } catch (IOException e) {
             System.err.println(e.getMessage());
             System.exit(-1);
@@ -370,8 +384,7 @@ public class SpertaServer extends Thread{
   
     }
 
-    //Fechar Servidor
-    public void closeServer (){
+	public void closeServer() {
         running = false;
         try{
             if(serverSocket != null && !serverSocket.isClosed()){
@@ -473,7 +486,7 @@ public class SpertaServer extends Thread{
 			network.send("WRONG-PWD");
 
             passwd = (String) network.receive();
-            System.out.println("Password recebido: " + passwd);
+            System.out.println("Password recebida: " + passwd);
             authenticated = clientInFile(user, passwd);
             if (authenticated >= 0) {
                 network.send("OK-USER");
@@ -544,7 +557,6 @@ public class SpertaServer extends Thread{
 			}
 		}
     }
-
 
 
 }

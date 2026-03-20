@@ -7,14 +7,22 @@ import java.nio.file.Paths;
 import java.util.Scanner;
 
 public class SpertaClient {
-    private static final String HELP_TEXT = "Comandos disponiveis:\n • CREATE <hm> # Criar casa <hm> - utilizador é Owner \n • ADD <user1> <hm> <s> # Adicionar utilizador <user1> à casa <hm>, seção <s> \n • RD <hm> <s> # Registar um Dispositivo na casa <hm>, na seção <s> \n • EC <hm> <d> <int> # Enviar valor <int> de estado/temporização, do dispositivo <d> da casa <hm>, para o servidor. \n • RT <hm># Receber a informação sobre o último comando (estados/temporizações) enviado a cada dispositivo da casa <hm>, desde que o utilizador tenha permissões. \n • RH <hm> <d># Receber o Histórico (ficheiro de log .csv) de comandos enviados ao dispositivo <d> da casa <hm>, desde que o utilizador tenha permissões.\n • EXIT ou QUIT # Terminar a ligação ao servidor e fechar o cliente\n • LS ou LS <hm> para listar todas as casas que o utilizador tem acesso ou para listar todos os dispositivos e seus temporizadores de uma casa específica <hm>";
+    private static final String HELP_TEXT = String.join("\n",
+            "Comandos disponiveis:",
+            " - CREATE <hm> # Criar casa <hm> - utilizador e Owner",
+            " - ADD <user1> <hm> <s> # Adicionar utilizador <user1> a casa <hm>, secao <s>",
+            " - RD <hm> <s> # Registar um dispositivo na casa <hm>, na secao <s>",
+            " - EC <hm> <d> <int> # Enviar valor <int> de estado/temporizacao do dispositivo <d> da casa <hm> para o servidor",
+            " - RT <hm> # Receber a informacao do ultimo comando enviado a cada dispositivo da casa <hm> (com permissoes)",
+            " - RH <hm> <d> # Receber o historico (ficheiro .csv) de comandos enviados ao dispositivo <d> da casa <hm> (com permissoes)",
+            " - EXIT ou QUIT # Terminar a ligacao ao servidor e fechar o cliente",
+            " - LS ou LS <hm> # Listar casas com acesso, ou listar dispositivos e temporizadores de uma casa <hm>");
     private static ClientNetwork network;
 
 
     public static class ServerAddress {
         String host;
         int port;
-        
         ServerAddress(String host, int port) {
             this.host = host;
             this.port = port;
@@ -24,23 +32,23 @@ public class SpertaClient {
 
     public static ServerAddress validateServerAddress(String serverAddress) {
         String host;
-        int port = 22345; // default port
+        int port = 22345; // porta default
         
         if (serverAddress.contains(":")) {
             String[] parts = serverAddress.split(":");
             if (parts.length != 2) {
-                System.err.println("Invalid serverAddress format. Use: <IP/hostname>[:Port]");
+                System.err.println("Formato do serverAddress inválido. Use: <IP/hostname>[:Port]");
                 System.exit(-1);
             }
             
             try {
                 port = Integer.parseInt(parts[1]);
                 if (port < 1024 || port > 65535) {
-                    System.err.println("Port must be between 1024 and 65535");
+                    System.err.println("Porto tem de ser entre 1024 e 65535");
                     System.exit(-1);
                 }
             } catch (NumberFormatException e) {
-                System.err.println("Invalid port number");
+                System.err.println("Número do porto inválido");
                 System.exit(-1);
             }
 
@@ -50,22 +58,17 @@ public class SpertaClient {
         }
         
         if (host.isEmpty()) {
-            System.err.println("Hostname/IP cannot be empty");
+            System.err.println("Hostname/IP não pode estar vazio.");
             System.exit(-1);
         }
         
         return new ServerAddress(host, port);
     }
 
-    // SpertaClient <serverAddress> <user-id> <password> 
-    // • <serverAddress> identifica o servidor. O formato de serverAddress é o seguinte: 
-    // <IP/hostname>[:Port].  O  endereço  IP/hostname  do  servidor  é  obrigatório  e  o 
-    // porto é opcional. Por omissão, o cliente deve ligar-se ao porto 22345 do servidor.  
-    // • <user-id> - string que identifica o utilizador no servidor SpertaServer.  
-    // • <password> - string correspondente à password do utilizador
+
     public static void main(String[] args) {
         if (args.length != 3){
-            System.err.println("Usage: SpertaClient <serverAddress> <user-id> <password>");
+            System.err.println("Uso: SpertaClient <serverAddress> <user-id> <password>");
             System.exit(-1);
         }
         
@@ -74,7 +77,7 @@ public class SpertaClient {
         String password = args[2];
         
         if (userId.isEmpty() || password.isEmpty()) {
-            System.err.println("User-id and password cannot be empty");
+            System.err.println("User-id e password não podem estar vazios.");
             System.exit(-1);
         }
 
@@ -84,10 +87,9 @@ public class SpertaClient {
         client.run(userId, password);
     }
 
+
     private boolean isAuthenticatedResponse(String authResponse) {
-        return authResponse.equals("OK-USER")
-                || authResponse.equals("OK-NEW-USER")
-                || authResponse.equals("Cliente connectado com sucesso!");
+        return authResponse.equals("OK-USER") || authResponse.equals("OK-NEW-USER") || authResponse.equals("Cliente connectado com sucesso!");
     }
 
     private boolean authenticate(Scanner sc, String userId, String password){
@@ -95,7 +97,7 @@ public class SpertaClient {
         network.send(password);
 
         String authResponse = (String) network.receive();
-        System.out.println("Server: " + authResponse);
+        System.out.println("Servidor: " + authResponse);
 
         if (authResponse.equals("WRONG-PWD")) {
             System.out.print("Escreva aqui a password correta: ");
@@ -103,17 +105,17 @@ public class SpertaClient {
             network.send(password);
 
             authResponse = (String) network.receive();
-            System.out.println("Server: " + authResponse);
+            System.out.println("Servidor: " + authResponse);
         }
 
         if (isAuthenticatedResponse(authResponse)) {
-            System.out.println("Connected to main.server!");
+            System.out.println("Conectado a main.server!");
             System.out.println(HELP_TEXT);
             return true;
         }
 
         if (authResponse.equals("WRONG-PWD")) {
-            System.out.println("Password Errada! CHÃOO");
+            System.out.println("Password Errada!");
         } else {
             System.out.println("A Autenticação falhou: " + authResponse);
         }
@@ -143,9 +145,7 @@ public class SpertaClient {
                     continue;
                 }
 
-                String status = response;
-
-                if ("OK".equals(status) && "RT".equals(commandName) && parts.length == 2) {
+                if ("OK".equals(response) && "RT".equals(commandName) && parts.length == 2) {
                     String house = parts[1];
                     Path out = Paths.get("logs", "RT_" + house + ".txt");
                     long sizeBytes = network.receiveFile(out);
@@ -156,7 +156,7 @@ public class SpertaClient {
                     } else {
                         System.out.println("Erro ao receber ficheiro RT.");
                     }
-                } else if ("OK".equals(status) && "RH".equals(commandName) && parts.length == 3) {
+                } else if ("OK".equals(response) && "RH".equals(commandName) && parts.length == 3) {
                     String house = parts[1];
                     String device = parts[2];
                     Path out = Paths.get("logs", "RH_" + house + "_" + device + ".csv");
@@ -169,7 +169,7 @@ public class SpertaClient {
                         System.out.println("Erro ao receber ficheiro RH.");
                     }
                 } else {
-                    System.out.println(status);
+                    System.out.println(response);
                 }
             }
         }
@@ -178,7 +178,7 @@ public class SpertaClient {
     private boolean attestation() throws IOException{
         long size;
         try (InputStream is = SpertaClient.class.getResourceAsStream("SpertaClient.class")) {
-            if (is == null) throw new IOException("Could not load SpertaClient.class resource for attestation");
+            if (is == null) throw new IOException("Não foi possível carregar o recurso SpertaClient.class para atestação.");
             size = is.readAllBytes().length;
         }
         String attestMsg = "ATTEST SpertaClient:" + size;
@@ -195,19 +195,17 @@ public class SpertaClient {
     }
 
     public void run(String userId, String password) {
-        Scanner sc = new Scanner(System.in);
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            System.out.println("\nCTRL+C detetado. A fechar o cliente...");
-            network.closeClientNetwork();
-        }));
-        try {
+        try (Scanner sc = new Scanner(System.in)) {
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                System.out.println("\nCTRL+C detetado. A fechar o cliente...");
+                network.closeClientNetwork();
+            }));
             if(!attestation()){
                 System.exit(-1);
             }
             if (authenticate(sc, userId, password)) {
                 commandLoop(sc);
             }
-            
         } catch (IOException e) {
             e.printStackTrace();
         }

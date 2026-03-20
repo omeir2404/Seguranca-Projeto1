@@ -11,14 +11,10 @@ public class ServerNetwork {
     ObjectOutputStream out;
     ObjectInputStream in;
 
-
     public ServerNetwork(Socket socket) throws IOException {
-        // ObjectOutputStream MUST come first to avoid deadlock
         this.out = new ObjectOutputStream(socket.getOutputStream());
         this.in  = new ObjectInputStream(socket.getInputStream());
     }
-
-
 
     // send
     public void send(Object obj) {
@@ -33,11 +29,9 @@ public class ServerNetwork {
     // send a file
     public void sendFile(Path filePath) {
         try (InputStream fis = Files.newInputStream(filePath)) {
-            // send file size
             out.writeLong(Files.size(filePath));
             out.flush();
 
-            // send file bytes
             byte[] buffer = new byte[8192];
             int bytesRead;
             while ((bytesRead = fis.read(buffer)) != -1) {
@@ -51,11 +45,9 @@ public class ServerNetwork {
 
     public void sendFile(SequenceInputStream s, long totalSize) {
         try {
-            // send file size using the same framing used in sendFile(Path)
             out.writeLong(totalSize);
             out.flush();
 
-            // send file bytes
             byte[] buffer = new byte[8192];
             int bytesRead;
             while ((bytesRead = s.read(buffer)) != -1) {
@@ -67,23 +59,19 @@ public class ServerNetwork {
         }
     }
 
-
     // receive
     public Object receive() {
         try {
             return in.readObject();
         } catch (EOFException e) {
-            // Expected when peer closes the connection or streams are closed during shutdown.
             return null;
         } catch (SocketException e) {
-            // Expected when socket is closed during server shutdown.
             return null;
         } catch (Exception e) {
             System.err.println("Erro a receber dados do cliente: " + e.getMessage());
             return null;
         }
     }
-
 
     // close
     public void close() {

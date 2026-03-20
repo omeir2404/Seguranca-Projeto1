@@ -14,7 +14,6 @@ import java.nio.file.StandardOpenOption;
 public class ClientNetwork {
 
     Socket clientSocket;
-
     ObjectOutputStream out;
     ObjectInputStream in;
 
@@ -43,7 +42,8 @@ public class ClientNetwork {
      * @returns String of the file contents or null if a file was not received properly
      */
     public String receiveFile() {
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try(baos) {
             long received = receiveFileToOutputStream(baos);
             if (received < 0) {
                 return null;
@@ -76,7 +76,7 @@ public class ClientNetwork {
 
     private long receiveFileToOutputStream(OutputStream outputStream) throws IOException {
         long fileSize = in.readLong();
-        System.out.printf("Recebendo arquivo de tamanho %d bytes...%n", fileSize);
+        System.out.printf("A receber arquivo de tamanho %d bytes...%n", fileSize);
 
         byte[] buffer = new byte[8192];
         long remaining = fileSize;
@@ -86,9 +86,8 @@ public class ClientNetwork {
             int bytesRead = in.read(buffer, 0, toRead);
 
             if (bytesRead == -1) {
-                throw new IOException("Connection closed before file transfer completed");
+                throw new IOException("A ligação foi terminada antes da conclusão da transferência do ficheiro.");
             }
-
             outputStream.write(buffer, 0, bytesRead);
             remaining -= bytesRead;
         }
@@ -102,12 +101,10 @@ public class ClientNetwork {
     public boolean initClientNetwork(String host, int port) {
         try{
             clientSocket = new Socket(host, port);
-
             out = new ObjectOutputStream(clientSocket.getOutputStream());
             in = new ObjectInputStream(clientSocket.getInputStream());
 
             return true;
-
         } catch (Exception e){
             e.printStackTrace();
             return false;

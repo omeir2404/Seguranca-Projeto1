@@ -1,9 +1,15 @@
 package main.client;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.OutputStream;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 
 public class ClientNetwork {
 
@@ -37,40 +43,59 @@ public class ClientNetwork {
      * @returns String of the file contents or null if a file was not received properly
      */
     public String receiveFile() {
-        StringBuilder sb = new StringBuilder();
-        try {
-            // String fileName = (String) in.readObject(); // server never sends filename
-            long fileSize = in.readLong();
-
-            System.out.printf("Recebendo arquivo de tamanho %d bytes...%n", fileSize);
-            byte[] buffer = new byte[8192];
-            long remaining = fileSize;
-
-            try {
-                while (remaining > 0) {
-                    int toRead = (int) Math.min(buffer.length, remaining);
-                    int bytesRead = in.read(buffer, 0, toRead);
-
-                    if (bytesRead == -1) {
-                        throw new IOException("Connection closed before file transfer completed");
-                    }
-
-                    sb.append(new String(buffer, 0, bytesRead));
-                    remaining -= bytesRead;
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            long received = receiveFileToOutputStream(baos);
+            if (received < 0) {
                 return null;
             }
-
+            return baos.toString(StandardCharsets.UTF_8);
         } catch (Exception e) {
             e.printStackTrace();
             return null;
         }
-        return sb.toString();
     }
 
-    
+    public long receiveFile(Path outputPath) {
+        try {
+            Path parent = outputPath.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+
+            try (var fos = Files.newOutputStream(outputPath,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING,
+                    StandardOpenOption.WRITE)) {
+                return receiveFileToOutputStream(fos);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return -1L;
+        }
+    }
+
+    private long receiveFileToOutputStream(OutputStream outputStream) throws IOException {
+        long fileSize = in.readLong();
+        System.out.printf("Recebendo arquivo de tamanho %d bytes...%n", fileSize);
+
+        byte[] buffer = new byte[8192];
+        long remaining = fileSize;
+
+        while (remaining > 0) {
+            int toRead = (int) Math.min(buffer.length, remaining);
+            int bytesRead = in.read(buffer, 0, toRead);
+
+            if (bytesRead == -1) {
+                throw new IOException("Connection closed before file transfer completed");
+            }
+
+            outputStream.write(buffer, 0, bytesRead);
+            remaining -= bytesRead;
+        }
+
+        outputStream.flush();
+        return fileSize;
+    }
 
 
     // init socket and streams

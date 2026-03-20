@@ -1,9 +1,2 @@
-User:pass
-Nexus:ehBueFixe
-Eclipse:ATuaMae
-Goku:lore
-Popup:Prezi1234
-Mito:MILTON 
-Mafalda:Prof
 
-User:pass
+Nexus:ehBueFixe

@@ -1,13 +1,4 @@
-House:User
-House1:Nexus
-house2:Nexus
-casinha:Nexus
-agua:Nexus
-c:Nexus
-u:Nexus
-ds:Nexus
-iejd:Nexus
-KSNDKLS:Nexus
-k:Nexus
-i:Nexus
-s:Nexus
+House:Owner
+
+casa:Nexus
+lama:Nexus

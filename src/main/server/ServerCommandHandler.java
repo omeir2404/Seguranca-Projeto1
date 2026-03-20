@@ -384,7 +384,38 @@ public class ServerCommandHandler {
     }
 
     //Método EC (Enviar valor)
-    public String sendInt(String user, String house, String device, String valueStr){
+    // public String sendInt(String user, String house, String device, String valueStr){
+    //     if (device != null) {
+    //         device = device.toUpperCase();
+    //     }
+    //     int value;
+    //     try {
+    //         value = Integer.parseInt(valueStr);
+    //     } catch (NumberFormatException e) {
+    //         return "NOK";
+    //     }
+    //     if (value < 0 || value > 600) {
+    //         return "NOK";
+    //     }
+    //     if (!houses.containsKey(house)) {
+    //         return hasPermissionAssignment(house, user) ? "NOHM" : "NOPERM";
+    //     }
+    //     if (!hasHouseAccess(house, user) || !hasDeviceAccess(house, user, device)) {
+    //         return "NOPERM";
+    //     }
+    //     Map<String, Integer> devices = deviceState.get(house);
+    //     if (devices == null || !devices.containsKey(device)) {
+    //         return "NOD";
+    //     }
+    //     if (!hasDeviceAccess(house, user, device)) {
+    //         return "NOPERM";
+    //     }
+    //     devices.put(device, value);
+    //     // EC <hm> <d> <int>
+    //     updateDeviceLogs("EC " + house + " " + device + " " + value, house, device);
+    //     return "OK";
+    // }
+        public String sendInt(String user, String house, String device, String valueStr){
         if (device != null) {
             device = device.toUpperCase();
         }
@@ -398,10 +429,7 @@ public class ServerCommandHandler {
             return "NOK";
         }
         if (!houses.containsKey(house)) {
-            return hasPermissionAssignment(house, user) ? "NOHM" : "NOPERM";
-        }
-        if (!hasHouseAccess(house, user) || !hasDeviceAccess(house, user, device)) {
-            return "NOPERM";
+            return "NOHM";
         }
         Map<String, Integer> devices = deviceState.get(house);
         if (devices == null || !devices.containsKey(device)) {
@@ -411,10 +439,10 @@ public class ServerCommandHandler {
             return "NOPERM";
         }
         devices.put(device, value);
-        // EC <hm> <d> <int>
+        //EC <hm> <d> <int>
         updateDeviceLogs("EC " + house + " " + device + " " + value, house, device);
         return "OK";
-    }
+    }   
 
 
     //Método RT (Obtém ficheiro de texto)

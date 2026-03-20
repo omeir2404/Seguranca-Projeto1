@@ -1,12 +1,3 @@
 House:User:Section
-KSNDKLS:Nexus:all
-c:Nexus:all
-casinha:Eclipse:P
-casinha:Nexus:all
-ds:Nexus:all
-house2:Nexus:all
-i:Nexus:all
-iejd:Nexus:all
-k:Nexus:all
-s:Nexus:all
-u:Nexus:all
+casa:Nexus:all
+lama:Nexus:all

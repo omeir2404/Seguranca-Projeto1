@@ -559,6 +559,20 @@ public class ServerCommandHandler {
     
         // Comando CREATE
         switch (comando) {
+
+            case "LS" -> {
+                if (parts.length > 2) {
+                    return "Erro: O correto é: LS ou LS <hm>";
+                } // command for all the houses
+                else if (parts.length == 1) {
+                    return lsCommand(user, null);
+                } else {
+                    String house = parts[1];
+                    return lsCommand(user, house);
+                }
+
+            }
+
             case "CREATE" -> {
                 if (parts.length != 2) {
                     return "ERRO: O correto é: CREATE <hm>";
@@ -622,6 +636,41 @@ public class ServerCommandHandler {
         }
 
         return "ERRO: Comando desconhecido: " + comando;
+    }
+
+    /**
+     * Lists the houses that the user has access to, and if a house is specified, lists the devices in that house that the user has access to, with their current state.
+     *
+     * @param user  user that wants to list
+     * @param house house that the user wants to list devices from
+     * @return a string with the houses and devices that the user has access to, or an error message if the user has no access to any house or the specified house doesn't exist or the user has no access to the specified house
+     */
+    private String lsCommand(String user, String house) {
+        if (house != null) {
+            if (!houses.containsKey(house)) {
+                return "NOHM";
+            }
+            if (!hasHouseAccess(house, user)) {
+                return "NOPERM";
+            }
+            Map<String, Integer> devices = deviceState.get(house);
+            if (devices == null || devices.isEmpty() || devices.keySet().stream().noneMatch(d -> hasDeviceAccess(house, user, d))) {
+                return "NODATA";
+            }
+            StringBuilder result = new StringBuilder();
+            devices.keySet().stream().filter(deviceName -> hasDeviceAccess(house, user, deviceName)).forEach(deviceName -> {
+                result.append(deviceName).append(" ").append(devices.get(deviceName)).append("\n");
+            });
+            return result.toString();
+        } else {
+            // list all houses that the user has access to
+            StringBuilder result = new StringBuilder();
+            houses.keySet().stream().filter(h -> hasHouseAccess(h, user)).forEach(h -> result.append(h).append("\n"));
+            if (result.isEmpty()) {
+                return "NODATA";
+            }
+            return result.toString();
+        }
     }
 
 

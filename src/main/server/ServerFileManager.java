@@ -12,6 +12,27 @@ import java.util.*;
 /**
  * Manages all file I/O operations for the Sperta Server.
  * Handles reading/writing user data, houses, permissions, and device logs.
+ * Contains the following methods by sections:
+
+*      ============ FILE LOADING METHODS ============
+- loadUsers()
+- loadHouses()
+- loadPermissions()
+
+*      ============ DEVICE STATE METHODS ============
+- rebuildDeviceStateFromPersistence(Map<String, String> houses)
+
+*      ============ LOG FILE METHODS ============
+- normalizeLogHeader(Path logPath)
+- readLastDeviceValue(Path logPath, String expectedHouse, String expectedDevice)
+- extractCommandPart(String line)
+- extractCommandFromLine(String line)
+- appendUser(String user, String pass)
+
+*      ============ UTILITY METHODS ============
+- getAttestationData()
+- printRebuildSummary(Map<String, Integer> restoredPerHouse, int totalRestored)
+
  */
 public class ServerFileManager {
 
@@ -48,7 +69,6 @@ public class ServerFileManager {
 
     /**
      * Initializes and validates all file paths based on project structure.
-     * Searches for project root by locating extras/Users.txt file.
      */
     private void initializeFilePaths() {
         this.projectRoot = findProjectRoot();
@@ -60,7 +80,7 @@ public class ServerFileManager {
     }
 
     /**
-     * Finds the project root directory by locating the extras/Users.txt marker file.
+     * Finds the project root directory.
      */
     private Path findProjectRoot() {
         Path current = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize();

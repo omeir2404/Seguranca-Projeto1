@@ -18,7 +18,7 @@
 - [x] Implement auth outcomes: `WRONG-PWD`, `OK-NEW-USER`, `OK-USER`.
 - [x] On `WRONG-PWD`, allow main.client password retry.
 - [x] Persist users and passwords on main.server text file.
-<!-- - [ ] server needs to be restared to recognize new users added to text file -- new issue (Optional according to prof) -->
+<!-- - [ ] server needs to be restared to recognize new users added to text file -- new issue (Optional according to Professor) -->
 
 ## Client CLI and Protocol Loop
 - [x] Show command menu after successful authentication.
@@ -44,16 +44,16 @@
 - [x] Maintain per-section device counters starting at `1`.
 - [x] Generate device IDs from section letter + counter.
 - [x] Return one of: `OK`, `NOPERM`, `NOHM`.
-- [ ] **CRITICAL**: Increment and persist counters in `SectionCounters.txt` on each successful RD.
-- [ ] Register device with initial state `0` in `DeviceState.txt` (latest states file).
+- [x] **CRITICAL**: Increment and persist counters in `section_counters.txt` on each successful RD (via `allocateNextDeviceName()`).
+- [x] Register device with initial state `0` in `last_commands.txt` (via `persistLastCommandValue()`).
 
 ## Command: EC
 - [x] Implement `EC <hm> <d> <int>`.
 - [x] Validate state/temporization values: `0`, `1`, `2..600`.
-- [ ] Enforce user permissions before changing device state.
+- [x] Enforce user permissions before changing device state.
 - [x] Return one of: `OK`, `NOK`, `NOHM`, `NOD`, `NOPERM`.
-- [ ] **CRITICAL**: Persist latest state to `DeviceState.txt` after update (format: `Casa1:M1=45`).
-- [x] Append timestamped rows to per-device `.csv` history.
+- [x] **CRITICAL**: Persist latest state to `last_commands.txt` after update (via `persistLastCommandValue()`).
+- [x] Append timestamped rows to per-device `.csv` history (nested in `server_data/homes/<house>/<section>/<device>.csv`).
 
 ## Command: RT
 - [x] Implement `RT <hm>`.
@@ -69,13 +69,13 @@
 - [x] Save received file locally on main.client.
 
 ## Server Persistence (Spec Required Files)
-- [x] **Users.txt** - maintains user credentials (User:password).
-- [x] **attestation.txt** - maintains client app hash reference (SpertaClient:<size>).
-- [ ] **Houses.txt** - should store house + owner (currently correct).
-- [ ] **Permissions.txt** - stores user permissions per house (currently separate file).
-- [ ] **SectionCounters.txt** - **CRITICAL**: Must increment counters on RD, not just on CREATE.
-- [ ] **DeviceState.txt** - NEW: Must persist latest device state/timer values (Casa1:M1=45; Casa1:M2=0).
-- [x] **logs/HOUSE_DEVICE.csv** - per-device history with timestamp + command.
+- [x] **Users.txt** → `server_data/auth/users.txt` - maintains user credentials (User:password).
+- [x] **attestation.txt** → `server_data/auth/attestation.txt` - maintains client app hash reference (SpertaClient:<size>).
+- [x] **Houses.txt** → `server_data/metadata/homes_registry.txt` - stores house + owner.
+- [x] **Permissions.txt** → `server_data/metadata/permissions.txt` - stores user permissions per house.
+- [x] **SectionCounters.txt** → `server_data/metadata/section_counters.txt` - Increments counters on RD (format: `<home>:<section>=<next_id>`).
+- [x] **DeviceState.txt** → `server_data/states/last_commands.txt` - Persists latest device state/timer values (format: `<home>:<device>:<value>`).
+- [x] **Device Logs (CSV)** → `server_data/homes/<house>/<section>/<device>.csv` - Per-device history with timestamp + command (nested structure).
 
 
 
@@ -107,82 +107,136 @@
 
 
 ## Bugs e Erros encontrados
-- [ ] No `CREATE` fazer a estrutura recomendada no enunciado para cada casa -> CADA DISPOSITIVO TEM DE TER UM FICHEIRO CSV
-      "Cada dispositivo tem 
-      um ficheiro de log, no formato csv, o qual contém o seu histórico de funcionamento, ou seja, regista 
-      todos  os  comandos  de  operação  (ligado,  ligado  com  temporização  ou  desligado)  do  dispositivo, 
-      incluindo a data e hora da sua ocorrência."
+- [x] No `CREATE` fazer a estrutura recomendada no enunciado para cada casa -> CADA DISPOSITIVO TEM DE TER UM FICHEIRO CSV
+      "Cada dispositivo tem um ficheiro de log, no formato csv, o qual contém o seu histórico de funcionamento, ou seja, regista 
+      todos os comandos de operação (ligado, ligado com temporização ou desligado) do dispositivo, incluindo a data e hora da sua ocorrência."
+      **FIXED**: Device logs now created in nested structure `server_data/homes/<house>/<section>/<device>.csv` via `getDeviceLogPath()` and `updateDeviceLogs()`.
+
 - [ ] `EC` nao esta a funcionar corretamente
-- [ ] `RT` e `RH` nao guarda os ficheiros no lugar correto
-- [ ] Section counters nunca sao atualizadas no ficheiro (so atualisa na memoria entoa se o server parar perde se os dados )(servercomandhandler -> 180 - 220)
+- [x] `RT` e `RH` nao guarda os ficheiros no lugar correto
+      **FIXED**: RT saves to `client_data/<userId>/status_<house>.txt` | RH saves to `client_data/<userId>/history_<device>_<house>.csv` 
+      (via updated `SpertaClient.commandLoop()` with userId parameter).
+
+- [x] Section counters nunca sao atualizadas no ficheiro (so atualisa na memoria entoa se o server parar perde se os dados)
+      **FIXED**: Implemented `allocateNextDeviceName()` method (synchronized) that atomically reads counters from `section_counters.txt`, 
+      increments per-section counter, and persists immediately on every RD command.
+
 - [ ] seccoes novas sao criadas com `RD` (ou nao deixamos que aconteca ou atualizamos os logs para os incluir)
 - [ ] `RD` so ve a primeira letra do input (RD casa1 hahah -> assume seccao = H)
 - [ ] `RT` é suposto enviar os logs mais recentes por dispositivo mas enviamos TUDO (servercomandhandler -> 458 - 500)
-- [ ] `RD` e logs tem de ser estruturadas melhor
 - [ ] `RT` devia enviar `NODATA` se nao houve mudanca -> aberto a interpretacao??
-- [ ] confirmar que `Attestation` pode ser feito no makefile ou se temos de fazer de outra forma 
+- [x] confirmar que `Attestation` pode ser feito no makefile ou se temos de fazer de outra forma 
+      **CONFIRMED**: Attestation is correctly written to `server_data/auth/attestation.txt` via Makefile during compile.
 - [ ] `Insere aqui o comando: add Eclipse casa pall` Deu `OK` e assumiu Secao == `P`
 - [ ] `ls <home>` nao funciona com permissoes == `all`
 
+## Lista de Metodos para rever
+### `src/main/server/SpertaServer.java`
 
-## LOG structure
+- [ ] `initializeFileManager()`
+- [ ] `verifyPersistenceStructure()`
+- [ ] `validateInput(String[] args)`
+- [ ] `initialize_server_vars()`
+- [ ] `main(String[] args)`
+- [ ] `startServer(int port)`
+- [ ] `closeServer()`
+- [ ] `ClientHandler(Socket sock)`
+- [ ] `clientInFile(String user, String pass)`
+- [ ] `attestClient()`
+- [ ] `authenticateClient()`
+- [ ] `ClientHandler.run()`
+- [ ] `handleClientCommands(String user)`
+- [ ] `closeConnection()`
 
-### 1.Persistence 
-This visualization shows how to organize your `server_data` root folder. Using a nested structure for devices makes searching for specific logs much faster.
+### `src/main/server/ServerCommandHandler.java`
 
-```text
+- [ ] `ServerCommandHandler(Map<String, String> users, Map<String, String> houses, Map<String, Map<String, String>> permissions, Map<String, Map<String, Integer>> deviceState, ServerNetwork serverNetwork)`
+- [ ] `getDeviceLogPath(String house, String device)`
+- [ ] `persistLastCommandValue(String house, String device, int value)`
+- [ ] `updateDeviceLogs(String command, String house, String device)`
+- [ ] `ensureParentDir(String filePath)`
+- [ ] `ensureFileHeader(String filePath, String header)`
+- [ ] `ensureLogHeaderAtTop(Path logPath, String header)`
+- [ ] `appendLine(String filePath, String line)`
+- [ ] `persistPermissionsSnapshot()`
+- [ ] `initialSectionCounters()`
+- [ ] `countersToString(Map<String, Integer> counters)`
+- [ ] `parseCounters(String countersStr)`
+- [ ] `allocateNextDeviceName(String house, String sectionLetter)`
+- [ ] `addHouseToFile(String house, String owner)`
+- [ ] `normalizePermissionValue(String raw)`
+- [ ] `hasHouseAccess(String house, String user)`
+- [ ] `isAllowedSection(String granted, String requestedSection)`
+- [ ] `deviceSection(String deviceName)`
+- [ ] `createHouse(String user, String house)`
+- [ ] `addHouse(String user, String userAdd, String house, String section)`
+- [ ] `registerDevice(String user, String house, String section)`
+- [ ] `sendInt(String user, String house, String device, String valueStr)`
+- [ ] `RT(String house, String user)`
+- [ ] `RT_sendFile(String house, String user)`
+- [ ] `historic(String house, String user, String device)`
+- [ ] `RH_sendFile(String house, String device)`
+- [ ] `checkPermissions(String house, String user, String section)`
+- [ ] `hasDeviceAccess(String house, String user, String deviceName)`
+- [ ] `hasAnyAccessibleDevice(Map<String, Integer> devices, String house, String user)`
+- [ ] `handleCommand(String cmd, String user)`
+- [ ] `lsCommand(String user, String house)`
 
-│
-├── server_data/                 # Persistence for the Server 
-│   ├── auth/
-│   │   ├── users.txt            # <user-id>:<password> 
-│   │   └── attestation.txt      # SpertaClient:<size> 
-│   ├── metadata/
-│   │   ├── homes_registry.txt   # <home>:<owner>:<permissions> 
-│   │   └── section_counters.txt # <home>:<section>:<next_id> 
-│   ├── states/
-│   │   └── last_commands.txt    # <home>:<device>:<value> 
-│   └── homes/                   # Directory for device logs 
-│       └── Casa1/               # Folder per house 
-│           ├── Electros/        # Section folders 
-│           ├── Garden/
-│           ├── Luzes/           # Contains L1.csv, L2.csv 
-│           ├── Multimedia/      # Contains M1.csv, M2.csv 
-│           ├── Portas/
-│           └── Stores/
-│
-└── client_data/                 # Local storage for the Client 
-    └── <user-id>/               # Separate folders per user (optional but recommended)
-        ├── status_Casa1.txt     # Result from RT Casa1 
-        └── history_M1_Casa1.csv # Result from RH Casa1 M1 
+### `src/main/server/ServerFileManager.java`
 
-```
+- [ ] `ServerFileManager()`
+- [ ] `initializeFilePaths()`
+- [ ] `findProjectRoot()`
+- [ ] `getProjectRoot()`
+- [ ] `ensurePersistenceStructure()`
+- [ ] `ensureFileExists(Path filePath)`
+- [ ] `loadUsers()`
+- [ ] `loadHouses()`
+- [ ] `loadPermissions()`
+- [ ] `rebuildDeviceStateFromPersistence(Map<String, String> houses)`
+- [ ] `normalizeLogHeader(Path logPath)`
+- [ ] `readLastDeviceValue(Path logPath, String expectedHouse, String expectedDevice)`
+- [ ] `extractCommandPart(String line)`
+- [ ] `extractCommandFromLine(String line)`
+- [ ] `appendUser(String user, String pass)`
+- [ ] `getAttestationData()`
+- [ ] `printRebuildSummary(Map<String, Integer> restoredPerHouse, int totalRestored)`
+- [ ] `getUsersFile()`
+- [ ] `getHousesFile()`
+- [ ] `getPermissionsFile()`
+- [ ] `getLogsDir()`
+- [ ] `getAttestationFile()`
 
-### 2. File Examples & Formats
+### `src/main/server/ServerNetwork.java`
 
+- [ ] `ServerNetwork(Socket socket)`
+- [ ] `send(Object obj)`
+- [ ] `sendFile(Path filePath)`
+- [ ] `sendFile(SequenceInputStream s, long totalSize)`
+- [ ] `receive()`
+- [ ] `close()`
 
-#### **B. Permissions & Metadata (New Recommended Structure)**
-To handle the `ADD` command effectively, you need a way to track who can do what.
-* **`homes_registry.txt`**: 
-    > `Format -> Home:Owner:User1=Perms;User2=Perms`
-    > `Casa1:iberia:alan=M,L` 
-    > `Casa2:iberia:alan=all;nuno=G` 
+### `src/main/client/SpertaClient.java`
 
-* **`section_counters.txt`**: Required to know the next ID when a user runs `RD <hm> <s>`.
-    > `Casa1:M:3` (Next Multimedia device in Casa1 will be M3)
-    > `Casa1:L:2`
+- [ ] `ServerAddress(String host, int port)`
+- [ ] `validateServerAddress(String serverAddress)`
+- [ ] `main(String[] args)`
+- [ ] `isAuthenticatedResponse(String authResponse)`
+- [ ] `authenticate(Scanner sc, String userId, String password)`
+- [ ] `commandLoop(Scanner sc, String userId)`
+- [ ] `attestation()`
+- [ ] `run(String userId, String password)`
 
-#### **C. History and State**
-* **`last_commands.txt`**: Used for the `RT <hm>` command to quickly show current status without parsing every CSV.
-    > `Casa1:M1:45` 
-    > `Casa1:L1:30` 
+### `src/main/client/ClientNetwork.java`
 
-* **`device_logs (CSV)`**: Specifically for the `RH <hm> <d>` command.
-    > `Timestamp,Operation,Value` 
-    > `2026-03-20 14:00:01,ON,1`
-    > `2026-03-20 14:30:00,TIMER,45`
+- [ ] `send(Object obj)`
+- [ ] `receive()`
+- [ ] `receiveFile()`
+- [ ] `receiveFile(Path outputPath)`
+- [ ] `receiveFileToOutputStream(OutputStream outputStream)`
+- [ ] `initClientNetwork(String host, int port)`
+- [ ] `closeClientNetwork()`
 
+### `src/main/client/CommandHandler.java`
 
-### Implementation Tip for Java
- `Files.createDirectories()` when a user creates a new house or registers a device in a new section. 
-
+- [ ] No active functions (file is fully commented out)

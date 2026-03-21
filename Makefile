@@ -59,4 +59,5 @@ clean:
 	@rm -rf *.class
 
 cleanFULL: clean
-	@rm -rf
+	@rm -rf client_data
+	@rm -rf server_data

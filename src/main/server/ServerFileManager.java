@@ -1,10 +1,12 @@
 package main.server;
 
 import java.io.*;
-import java.nio.file.DirectoryStream;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 
 /**
@@ -19,13 +21,20 @@ public class ServerFileManager {
     private static final String EC_COMMAND = "EC";
     private static final int MIN_DEVICE_VALUE = 0;
     private static final int MAX_DEVICE_VALUE = 600;
-    private static final String EXTRAS_DIR = "extras";
-    private static final String LOGS_DIR_NAME = "logs";
-    private static final String USERS_FILENAME = "Users.txt";
-    private static final String HOUSES_FILENAME = "Houses.txt";
-    private static final String PERMISSIONS_FILENAME = "Permissions.txt";
+    private static final String SERVER_DATA_DIR = "server_data";
+    private static final String AUTH_DIR = "auth";
+    private static final String METADATA_DIR = "metadata";
+    private static final String STATES_DIR = "states";
+    private static final String HOMES_DIR = "homes";
+    private static final String USERS_FILENAME = "users.txt";
+    private static final String HOUSES_FILENAME = "homes_registry.txt";
+    private static final String PERMISSIONS_FILENAME = "permissions.txt";
+    private static final String HOUSE_METADATA_FILENAME = "house_metadata.txt";
+    private static final String SECTION_COUNTERS_FILENAME = "section_counters.txt";
+    private static final String LAST_COMMANDS_FILENAME = "last_commands.txt";
     private static final String ATTESTATION_FILENAME = "attestation.txt";
 
+    private Path projectRoot;
     private String usersFile;
     private String housesFile;
     private String permissionsFile;
@@ -34,6 +43,7 @@ public class ServerFileManager {
 
     public ServerFileManager() {
         initializeFilePaths();
+        ensurePersistenceStructure();
     }
 
     /**
@@ -41,12 +51,12 @@ public class ServerFileManager {
      * Searches for project root by locating extras/Users.txt file.
      */
     private void initializeFilePaths() {
-        Path projectRoot = findProjectRoot();
-        this.usersFile = projectRoot.resolve(EXTRAS_DIR).resolve(USERS_FILENAME).toString();
-        this.housesFile = projectRoot.resolve(EXTRAS_DIR).resolve(HOUSES_FILENAME).toString();
-        this.permissionsFile = projectRoot.resolve(EXTRAS_DIR).resolve(PERMISSIONS_FILENAME).toString();
-        this.logsDir = projectRoot.resolve(LOGS_DIR_NAME).toString();
-        this.attestationFile = projectRoot.resolve(EXTRAS_DIR).resolve(ATTESTATION_FILENAME).toString();
+        this.projectRoot = findProjectRoot();
+        this.usersFile = projectRoot.resolve(SERVER_DATA_DIR).resolve(AUTH_DIR).resolve(USERS_FILENAME).toString();
+        this.housesFile = projectRoot.resolve(SERVER_DATA_DIR).resolve(METADATA_DIR).resolve(HOUSES_FILENAME).toString();
+        this.permissionsFile = projectRoot.resolve(SERVER_DATA_DIR).resolve(METADATA_DIR).resolve(PERMISSIONS_FILENAME).toString();
+        this.logsDir = projectRoot.resolve(SERVER_DATA_DIR).resolve(HOMES_DIR).toString();
+        this.attestationFile = projectRoot.resolve(SERVER_DATA_DIR).resolve(AUTH_DIR).resolve(ATTESTATION_FILENAME).toString();
     }
 
     /**
@@ -57,8 +67,9 @@ public class ServerFileManager {
         Path projectRoot = current;
 
         while (current != null) {
-            Path usersFile = current.resolve(EXTRAS_DIR).resolve(USERS_FILENAME);
-            if (usersFile.toFile().exists()) {
+            Path makefile = current.resolve("Makefile");
+            Path srcDir = current.resolve("src");
+            if (Files.exists(makefile) && Files.isDirectory(srcDir)) {
                 projectRoot = current;
                 break;
             }
@@ -72,7 +83,39 @@ public class ServerFileManager {
      * Gets the project root directory.
      */
     public String getProjectRoot() {
-        return findProjectRoot().toString();
+        return projectRoot.toString();
+    }
+
+    public void ensurePersistenceStructure() {
+        Path serverDataRoot = projectRoot.resolve(SERVER_DATA_DIR);
+        Path authDir = serverDataRoot.resolve(AUTH_DIR);
+        Path metadataDir = serverDataRoot.resolve(METADATA_DIR);
+        Path statesDir = serverDataRoot.resolve(STATES_DIR);
+        Path homesDir = serverDataRoot.resolve(HOMES_DIR);
+
+        try {
+            Files.createDirectories(authDir);
+            Files.createDirectories(metadataDir);
+            Files.createDirectories(statesDir);
+            Files.createDirectories(homesDir);
+
+            ensureFileExists(authDir.resolve(USERS_FILENAME));
+            ensureFileExists(authDir.resolve(ATTESTATION_FILENAME));
+            ensureFileExists(metadataDir.resolve(HOUSES_FILENAME));
+            ensureFileExists(metadataDir.resolve(PERMISSIONS_FILENAME));
+            ensureFileExists(metadataDir.resolve(HOUSE_METADATA_FILENAME));
+            ensureFileExists(metadataDir.resolve(SECTION_COUNTERS_FILENAME));
+            ensureFileExists(statesDir.resolve(LAST_COMMANDS_FILENAME));
+        } catch (IOException e) {
+            System.err.println("Erro ao preparar estrutura de persistência: " + e.getMessage());
+            System.exit(-1);
+        }
+    }
+
+    private void ensureFileExists(Path filePath) throws IOException {
+        if (!Files.exists(filePath)) {
+            Files.createFile(filePath);
+        }
     }
 
     // ============ FILE LOADING METHODS ============
@@ -222,46 +265,52 @@ public class ServerFileManager {
             return deviceState;
         }
 
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(logsDirPath, "*" + CSV_EXTENSION)) {
-            for (Path logPath : stream) {
-                String fileName = logPath.getFileName().toString();
-                if (!fileName.endsWith(CSV_EXTENSION)) {
-                    continue;
+        final int[] totalRestoredRef = {totalRestored};
+
+        try {
+            Files.walkFileTree(logsDirPath, new SimpleFileVisitor<>() {
+                @Override
+                public FileVisitResult visitFile(Path logPath, BasicFileAttributes attrs) {
+                    String fileName = logPath.getFileName().toString();
+                    if (!fileName.endsWith(CSV_EXTENSION)) {
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    normalizeLogHeader(logPath);
+
+                    Path relativePath = logsDirPath.relativize(logPath);
+                    if (relativePath.getNameCount() < 3) {
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    String house = relativePath.getName(0).toString();
+                    String device = fileName.substring(0, fileName.length() - 4);
+                    if (!houses.containsKey(house)) {
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    int value = readLastDeviceValue(logPath, house, device);
+
+                    Map<String, Integer> houseDevices = deviceState.get(house);
+                    if (houseDevices == null) {
+                        houseDevices = new HashMap<>();
+                        deviceState.put(house, houseDevices);
+                    }
+                    Integer previous = houseDevices.put(device, value);
+
+                    if (previous == null) {
+                        restoredPerHouse.put(house, restoredPerHouse.getOrDefault(house, 0) + 1);
+                        totalRestoredRef[0]++;
+                    }
+
+                    return FileVisitResult.CONTINUE;
                 }
-
-                normalizeLogHeader(logPath);
-
-                String baseName = fileName.substring(0, fileName.length() - 4);
-                int separator = baseName.lastIndexOf('_');
-                if (separator <= 0 || separator >= baseName.length() - 1) {
-                    continue;
-                }
-
-                String house = baseName.substring(0, separator);
-                String device = baseName.substring(separator + 1);
-                if (!houses.containsKey(house)) {
-                    continue;
-                }
-
-                int value = readLastDeviceValue(logPath, house, device);
-
-                Map<String, Integer> houseDevices = deviceState.get(house);
-                if (houseDevices == null) {
-                    houseDevices = new HashMap<>();
-                    deviceState.put(house, houseDevices);
-                }
-                Integer previous = houseDevices.put(device, value);
-
-                if (previous == null) {
-                    restoredPerHouse.put(house, restoredPerHouse.getOrDefault(house, 0) + 1);
-                    totalRestored++;
-                }
-            }
+            });
         } catch (IOException e) {
             System.err.println("Aviso ao reconstruir estado dos dispositivos: " + e.getMessage());
         }
 
-        printRebuildSummary(restoredPerHouse, totalRestored);
+        printRebuildSummary(restoredPerHouse, totalRestoredRef[0]);
         return deviceState;
     }
 

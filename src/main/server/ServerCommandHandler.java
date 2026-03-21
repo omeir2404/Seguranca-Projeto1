@@ -14,12 +14,13 @@ public class ServerCommandHandler {
     private Map<String, Map<String, String>> permissions;
     private Map<String, Map<String, Integer>> deviceState;
 
-    private static String HOUSES_FILE = "extras/Houses.txt";
-	private static String PERMISSIONS_FILE = "extras/Permissions.txt";
-    private static String HOUSE_METADATA_FILE = "extras/HouseMetadata.txt";
-    private static String COUNTERS_FILE = "extras/SectionCounters.txt";
-    private static String HOUSE_AUDIT_LOG = "logs/houses.log";
-    private static String LOG_DIR = "logs/";
+    private static String HOUSES_FILE = "server_data/metadata/homes_registry.txt";
+	private static String PERMISSIONS_FILE = "server_data/metadata/permissions.txt";
+    private static String HOUSE_METADATA_FILE = "server_data/metadata/house_metadata.txt";
+    private static String COUNTERS_FILE = "server_data/metadata/section_counters.txt";
+    private static String LAST_COMMANDS_FILE = "server_data/states/last_commands.txt";
+    private static String HOUSE_AUDIT_LOG = "server_data/metadata/houses.log";
+    private static String LOG_DIR = "server_data/homes";
     private static final String LOGS_HEADER = "time; command";
     private static final DateTimeFormatter TS_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
     private ServerNetwork serverNetwork;
@@ -31,21 +32,67 @@ public class ServerCommandHandler {
         this.houses = houses;
         this.permissions = permissions;
         this.deviceState = deviceState;
-		PERMISSIONS_FILE = projectRoot.resolve("extras").resolve("Permissions.txt").toString();
-    	HOUSES_FILE = projectRoot.resolve("extras").resolve("Houses.txt").toString();
-        HOUSE_METADATA_FILE = projectRoot.resolve("extras").resolve("HouseMetadata.txt").toString();
-        COUNTERS_FILE = projectRoot.resolve("extras").resolve("SectionCounters.txt").toString();
-        HOUSE_AUDIT_LOG = projectRoot.resolve("logs").resolve("houses.log").toString();
-        LOG_DIR = projectRoot.resolve("logs").toString();
+        Path serverDataRoot = projectRoot.resolve("server_data");
+        PERMISSIONS_FILE = serverDataRoot.resolve("metadata").resolve("permissions.txt").toString();
+    	HOUSES_FILE = serverDataRoot.resolve("metadata").resolve("homes_registry.txt").toString();
+        HOUSE_METADATA_FILE = serverDataRoot.resolve("metadata").resolve("house_metadata.txt").toString();
+        COUNTERS_FILE = serverDataRoot.resolve("metadata").resolve("section_counters.txt").toString();
+        LAST_COMMANDS_FILE = serverDataRoot.resolve("states").resolve("last_commands.txt").toString();
+        HOUSE_AUDIT_LOG = serverDataRoot.resolve("metadata").resolve("houses.log").toString();
+        LOG_DIR = serverDataRoot.resolve("homes").toString();
         this.serverNetwork = serverNetwork;
+    }
+
+    private Path getDeviceLogPath(String house, String device) {
+        String section = deviceSection(device);
+        if (section == null) {
+            section = "UNKNOWN";
+        }
+        return Paths.get(LOG_DIR, house, section, device + ".csv");
+    }
+
+    private synchronized void persistLastCommandValue(String house, String device, int value) {
+        try {
+            ensureFileHeader(LAST_COMMANDS_FILE, "Home:Device:Value");
+            Path statePath = Paths.get(LAST_COMMANDS_FILE).toAbsolutePath().normalize();
+            List<String> lines = Files.exists(statePath)
+                    ? Files.readAllLines(statePath, StandardCharsets.UTF_8)
+                    : new ArrayList<>();
+
+            if (lines.isEmpty()) {
+                lines.add("Home:Device:Value");
+            }
+
+            String key = house + ":" + device + ":";
+            String replacement = house + ":" + device + ":" + value;
+            boolean updated = false;
+
+            for (int i = 1; i < lines.size(); i++) {
+                String line = lines.get(i).trim();
+                if (line.startsWith(key)) {
+                    lines.set(i, replacement);
+                    updated = true;
+                    break;
+                }
+            }
+
+            if (!updated) {
+                lines.add(replacement);
+            }
+
+            Files.write(statePath, lines, StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+        } catch (IOException e) {
+            System.err.println("Erro ao persistir último estado do dispositivo: " + e.getMessage());
+        }
     }
 
 
     private void updateDeviceLogs(String command, String house, String device){
         // the logs should be one per device, all in csv and with a header (time; command (turn on, turn on with timer, turn off))
         try {
-            Files.createDirectories(Paths.get(LOG_DIR));
-            Path logPath = Paths.get(LOG_DIR, house + "_" + device + ".csv");
+            Path logPath = getDeviceLogPath(house, device);
+            ensureParentDir(logPath.toString());
             ensureLogHeaderAtTop(logPath, LOGS_HEADER);
             appendLine(logPath.toString(), LocalDateTime.now().format(TS_FORMAT) + ";" + command);
 
@@ -204,6 +251,85 @@ public class ServerCommandHandler {
         return sb.toString();
     }
 
+    private Map<String, Integer> parseCounters(String countersStr) {
+        Map<String, Integer> counters = initialSectionCounters();
+        if (countersStr == null || countersStr.isBlank()) {
+            return counters;
+        }
+
+        String[] tokens = countersStr.split(",");
+        for (String token : tokens) {
+            String[] pair = token.split("=", 2);
+            if (pair.length != 2) {
+                continue;
+            }
+
+            String section = pair[0].trim().toUpperCase();
+            if (section.isEmpty()) {
+                continue;
+            }
+
+            try {
+                int nextId = Integer.parseInt(pair[1].trim());
+                if (nextId < 1) {
+                    nextId = 1;
+                }
+                counters.put(section, nextId);
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return counters;
+    }
+
+    private synchronized String allocateNextDeviceName(String house, String sectionLetter) {
+        try {
+            ensureFileHeader(COUNTERS_FILE, "House:Section=NextCounter");
+            Path countersPath = Paths.get(COUNTERS_FILE).toAbsolutePath().normalize();
+            List<String> lines = Files.readAllLines(countersPath, StandardCharsets.UTF_8);
+
+            if (lines.isEmpty()) {
+                lines.add("House:Section=NextCounter");
+            }
+
+            int houseLineIndex = -1;
+            Map<String, Integer> counters = initialSectionCounters();
+
+            for (int i = 1; i < lines.size(); i++) {
+                String line = lines.get(i).trim();
+                if (line.isEmpty()) {
+                    continue;
+                }
+                String[] parts = line.split(":", 2);
+                if (parts.length == 2 && house.equals(parts[0].trim())) {
+                    houseLineIndex = i;
+                    counters = parseCounters(parts[1]);
+                    break;
+                }
+            }
+
+            int nextId = counters.getOrDefault(sectionLetter, 1);
+            if (nextId < 1) {
+                nextId = 1;
+            }
+            String deviceName = sectionLetter + nextId;
+            counters.put(sectionLetter, nextId + 1);
+
+            String updatedLine = house + ":" + countersToString(counters);
+            if (houseLineIndex >= 0) {
+                lines.set(houseLineIndex, updatedLine);
+            } else {
+                lines.add(updatedLine);
+            }
+
+            Files.write(countersPath, lines, StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+            return deviceName;
+        } catch (IOException e) {
+            System.err.println("Erro ao atualizar section counters: " + e.getMessage());
+            return null;
+        }
+    }
+
     private synchronized boolean addHouseToFile(String house, String owner) {
         String now = LocalDateTime.now().format(TS_FORMAT);
         Map<String, Integer> counters = initialSectionCounters();
@@ -315,7 +441,11 @@ public class ServerCommandHandler {
             return "NOK";
         }
 
-        Map<String, String> housePermissions = permissions.computeIfAbsent(house, k -> new HashMap<>());
+        Map<String, String> housePermissions = permissions.get(house);
+        if (housePermissions == null) {
+            housePermissions = new HashMap<>();
+            permissions.put(house, housePermissions);
+        }
         housePermissions.put(user, "all");
         if (!persistPermissionsSnapshot()) {
             System.err.println("Aviso: Ficheiro de permissões pode estar desatualizado após CREATE.");
@@ -376,15 +506,12 @@ public class ServerCommandHandler {
             deviceState.put(house, devices);
         }
 
-        int count = 0;
-        for (String dev : devices.keySet()) {
-            if (!dev.isEmpty() && Character.toUpperCase(dev.charAt(0)) == sectionLetter.charAt(0)) {
-                count++;
-            }
+        String deviceName = allocateNextDeviceName(house, sectionLetter);
+        if (deviceName == null) {
+            return "NOK";
         }
-
-        String deviceName = sectionLetter + (count + 1);
         devices.put(deviceName, 0);
+        persistLastCommandValue(house, deviceName, 0);
   
         updateDeviceLogs("RD " + house + " " + section, house, deviceName);
         return "OK";
@@ -415,6 +542,7 @@ public class ServerCommandHandler {
             return "NOPERM";
         }
         devices.put(device, value);
+        persistLastCommandValue(house, device, value);
 
         updateDeviceLogs("EC " + house + " " + device + " " + value, house, device);
         return "OK";
@@ -430,10 +558,10 @@ public class ServerCommandHandler {
             return "NOPERM"; 
         } 
         Map<String, Integer> devices = deviceState.get(house);
-        if (devices == null || devices.isEmpty() || devices.keySet().stream().noneMatch(d -> hasDeviceAccess(house, user, d))){
+        if (!hasAnyAccessibleDevice(devices, house, user)){
             return "NODATA";
         }
-            
+
         return "OK";
     }
 
@@ -451,8 +579,9 @@ public class ServerCommandHandler {
         }
 
         Collections.sort(allowedDevices);
-        File lineSeparatorFile = new File(LOG_DIR, "lineSeparator.txt");
+        File lineSeparatorFile = new File(Paths.get(LOG_DIR, "lineSeparator.txt").toString());
         try {
+            ensureParentDir(lineSeparatorFile.getPath());
             if (!lineSeparatorFile.exists()) {
                 Files.writeString(lineSeparatorFile.toPath(), System.lineSeparator(), StandardCharsets.UTF_8, StandardOpenOption.CREATE);
             }
@@ -461,16 +590,20 @@ public class ServerCommandHandler {
         }
         List<FileInputStream> files = new LinkedList<>();
         final long[] totalSize = {0};
-        allowedDevices.stream().map(deviceName -> house + "_" + deviceName + ".csv").forEach(fileName -> {
+        for (String deviceName : allowedDevices) {
             try {
-                File f = new File(LOG_DIR, fileName);
+                Path deviceLogPath = getDeviceLogPath(house, deviceName);
+                File f = deviceLogPath.toFile();
+                if (!f.exists()) {
+                    continue;
+                }
                 files.add(new FileInputStream(f));
-                files.add(new FileInputStream(lineSeparatorFile)); 
+                files.add(new FileInputStream(lineSeparatorFile));
                 totalSize[0] += f.length() + lineSeparatorFile.length();
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
             }
-        });
+        }
         try (SequenceInputStream s = new SequenceInputStream(Collections.enumeration(files))) {
             serverNetwork.send("OK");
             serverNetwork.sendFile(s, totalSize[0]);
@@ -497,7 +630,7 @@ public class ServerCommandHandler {
         if (devices == null || !devices.containsKey(device)) {
             return "NOD";
         }
-        File logFile = new File(LOG_DIR, house + "_" + device + ".csv");
+        File logFile = getDeviceLogPath(house, device).toFile();
         if (!logFile.exists()) {
             System.out.println("Nenhum log encontrado para o dispositivo: " + device + " na casa: " + house);
             return "NODATA";
@@ -514,7 +647,7 @@ public class ServerCommandHandler {
 
         serverNetwork.send("OK");
 
-        File logFile = new File(LOG_DIR, house + "_" + device + ".csv");
+        File logFile = getDeviceLogPath(house, device).toFile();
         if (logFile.exists()) { 
             serverNetwork.sendFile(logFile.toPath());
         } else {
@@ -545,6 +678,18 @@ public class ServerCommandHandler {
         return checkPermissions(house, user, deviceSection(deviceName));
     }
 
+    private boolean hasAnyAccessibleDevice(Map<String, Integer> devices, String house, String user) {
+        if (devices == null || devices.isEmpty()) {
+            return false;
+        }
+        for (String deviceName : devices.keySet()) {
+            if (hasDeviceAccess(house, user, deviceName)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
 //////////////////////////FUNÇÕES AUXILIARES/////////////////////////////////////////
 
 
@@ -558,82 +703,55 @@ public class ServerCommandHandler {
         System.out.println(parts.length);
         String comando = parts[0].toUpperCase();
     
-        // Comando CREATE
         switch (comando) {
-            case "LS" -> {
+            case "LS":
                 if (parts.length > 2) {
                     return "Erro: O correto é: LS ou LS <hm>";
                 }
-                else if (parts.length == 1) {
+                if (parts.length == 1) {
                     return lsCommand(user, null);
-                } else {
-                    String house = parts[1];
-                    return lsCommand(user, house);
                 }
+                return lsCommand(user, parts[1]);
 
-            }
-
-            case "CREATE" -> {
+            case "CREATE":
                 if (parts.length != 2) {
                     return "ERRO: O correto é: CREATE <hm>";
                 }
-                String houseName = parts[1];
-                return createHouse(user, houseName);
-            }
+                return createHouse(user, parts[1]);
 
-            // Comando ADD
-            case "ADD" -> {
+            case "ADD":
                 if (parts.length != 4) {
                     return "ERRO: O correto é:  ADD <user1> <hm> <s>";
                 }
-                String userAdd = parts[1];
-                String house = parts[2];
-                String section = parts[3];
-                return addHouse(user, userAdd, house, section);
+                return addHouse(user, parts[1], parts[2], parts[3]);
 
-            // Comando RD
-            }
-            case "RD" -> {
+            case "RD":
                 if (parts.length != 3) {
                     return "ERRO: O correto é:  RD <hm> <s>";
                 }
-                String house = parts[1];
-                String section = parts[2];
-                return registerDevice(user, house, section);
+                return registerDevice(user, parts[1], parts[2]);
 
-            // Comando EC
-            }
-            case "EC" -> {
+            case "EC":
                 if (parts.length != 4) {
                     return "ERRO: O correto é: EC <hm> <d> <int>";
                 }
-                String house = parts[1];
-                String device = parts[2];
-                String value = parts[3];
-                return sendInt(user, house, device, value);
+                return sendInt(user, parts[1], parts[2], parts[3]);
 
-            // Comando RH
-            }
-            case "RH" -> {
+            case "RH":
                 if (parts.length != 3) {
                     return "ERRO: O correto é: RH <hm> <d>";
                 }
-                String house = parts[1];
-                String device = parts[2];
-                return historic(house, user, device);
+                return historic(parts[1], user, parts[2]);
 
-            // Comando RT
-            }
-            case "RT" -> {
+            case "RT":
                 if (parts.length != 2) {
                     return "ERRO: O correto é: RT <hm>";
                 }
-                String house = parts[1];
-                return RT(house, user);
-            }
-        }
+                return RT(parts[1], user);
 
-        return "ERRO: Comando desconhecido: " + comando;
+            default:
+                return "ERRO: Comando desconhecido: " + comando;
+        }
     }
 
     //Lists the houses that the user has access to, and if a house is specified, lists the devices in that house that the user has access to, with their current state.
@@ -646,17 +764,23 @@ public class ServerCommandHandler {
                 return "NOPERM";
             }
             Map<String, Integer> devices = deviceState.get(house);
-            if (devices == null || devices.isEmpty() || devices.keySet().stream().noneMatch(d -> hasDeviceAccess(house, user, d))) {
+            if (!hasAnyAccessibleDevice(devices, house, user)) {
                 return "NODATA";
             }
             StringBuilder result = new StringBuilder();
-            devices.keySet().stream().filter(deviceName -> hasDeviceAccess(house, user, deviceName)).forEach(deviceName -> {
-                result.append(deviceName).append(" ").append(devices.get(deviceName)).append("\n");
-            });
+            for (String deviceName : devices.keySet()) {
+                if (hasDeviceAccess(house, user, deviceName)) {
+                    result.append(deviceName).append(" ").append(devices.get(deviceName)).append("\n");
+                }
+            }
             return result.toString();
         } else {
             StringBuilder result = new StringBuilder();
-            houses.keySet().stream().filter(h -> hasHouseAccess(h, user)).forEach(h -> result.append(h).append("\n"));
+            for (String houseName : houses.keySet()) {
+                if (hasHouseAccess(houseName, user)) {
+                    result.append(houseName).append("\n");
+                }
+            }
             if (result.isEmpty()) {
                 return "NODATA";
             }

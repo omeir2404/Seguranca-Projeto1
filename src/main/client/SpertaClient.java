@@ -123,7 +123,7 @@ public class SpertaClient {
         return false;
     }
 
-    private void commandLoop(Scanner sc){
+    private void commandLoop(Scanner sc, String userId){
         boolean running = true;
 
         while (running) {
@@ -147,7 +147,7 @@ public class SpertaClient {
 
                 if ("OK".equals(response) && "RT".equals(commandName) && parts.length == 2) {
                     String house = parts[1];
-                    Path out = Paths.get("logs", "RT_" + house + ".txt");
+                    Path out = Paths.get("client_data", userId, "status_" + house + ".txt");
                     long sizeBytes = network.receiveFile(out);
                     if (sizeBytes >= 0) {
                         System.out.println("OK");
@@ -159,7 +159,7 @@ public class SpertaClient {
                 } else if ("OK".equals(response) && "RH".equals(commandName) && parts.length == 3) {
                     String house = parts[1];
                     String device = parts[2];
-                    Path out = Paths.get("logs", "RH_" + house + "_" + device + ".csv");
+                    Path out = Paths.get("client_data", userId, "history_" + device + "_" + house + ".csv");
                     long sizeBytes = network.receiveFile(out);
                     if (sizeBytes >= 0) {
                         System.out.println("OK");
@@ -196,15 +196,18 @@ public class SpertaClient {
 
     public void run(String userId, String password) {
         try (Scanner sc = new Scanner(System.in)) {
-            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                System.out.println("\nCTRL+C detetado. A fechar o cliente...");
-                network.closeClientNetwork();
+            Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    System.out.println("\nCTRL+C detetado. A fechar o cliente...");
+                    network.closeClientNetwork();
+                }
             }));
             if(!attestation()){
                 System.exit(-1);
             }
             if (authenticate(sc, userId, password)) {
-                commandLoop(sc);
+                commandLoop(sc, userId);
             }
         } catch (IOException e) {
             e.printStackTrace();

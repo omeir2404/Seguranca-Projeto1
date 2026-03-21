@@ -16,12 +16,14 @@ CLIENT_ARGS_NO_PORT = 127.0.0.1 Nexus ehBueFixe
 compile:
 	@mkdir -p $(BIN_DIR)/main/server $(BIN_DIR)/main/client
 	@$(JAVAC) -d $(BIN_DIR) $(SRC_DIR)/main/server/*.java $(SRC_DIR)/main/client/*.java
-	@printf 'SpertaClient:%s\n' "$$(stat -c%s bin/main/client/SpertaClient.class)" > extras/attestation.txt
+	@mkdir -p server_data/auth
+	@printf 'SpertaClient:%s\n' "$$(stat -c%s bin/main/client/SpertaClient.class)" > server_data/auth/attestation.txt
 
 
 compile_client:
 	@$(JAVAC) -d $(BIN_DIR)  $(SRC_DIR)/main/client/*.java
-	@printf 'SpertaClient:%s\n' "$$(stat -c%s bin/main/client/SpertaClient.class)" > extras/attestation.txt
+	@mkdir -p server_data/auth
+	@printf 'SpertaClient:%s\n' "$$(stat -c%s bin/main/client/SpertaClient.class)" > server_data/auth/attestation.txt
 
 
 compile_server:

@@ -1,4 +1,0 @@
-House:Metadata
-
-casa:createdAt=2026-03-21T12:25:54.697522788
-lama:createdAt=2026-03-21T12:26:07.227726501

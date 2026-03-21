@@ -26,6 +26,10 @@ public class SpertaServer extends Thread {
         fileManager = new ServerFileManager();
     }
 
+	private static void verifyPersistenceStructure() {
+		fileManager.ensurePersistenceStructure();
+	}
+
     private static int validateInput(String[] args) {
         if (args.length > 1) {
             System.out.println("Input Inválido: SpertaServer [port]");
@@ -60,6 +64,7 @@ public class SpertaServer extends Thread {
     public static void main(String[] args) {
         int port = validateInput(args);
         initializeFileManager();
+		verifyPersistenceStructure();
         initialize_server_vars();
 
         if (port == 0) {
@@ -67,9 +72,12 @@ public class SpertaServer extends Thread {
         }
 
         SpertaServer server = new SpertaServer();
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            System.out.println("\nCTRL+C detetado. A fechar o servidor...");
-            server.closeServer();
+        Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
+            @Override
+            public void run() {
+                System.out.println("\nCTRL+C detetado. A fechar o servidor...");
+                server.closeServer();
+            }
         }));
         server.startServer(port);
     }

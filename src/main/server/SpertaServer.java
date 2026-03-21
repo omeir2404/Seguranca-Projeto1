@@ -3,362 +3,80 @@ package main.server;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.file.DirectoryStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 
-public class SpertaServer extends Thread{
-    
+public class SpertaServer extends Thread {
+
+    private static final int DEFAULT_PORT = 22345;
+    private static final int MIN_PORT = 1024;
+    private static final int MAX_PORT = 65535;
+
     private ServerSocket serverSocket;
-    private boolean running  = true;
-	private static Map<String, String> users;
-	private static Map<String, String> houses;
-	private static Map<String, Map<String, String>> permissions;
-	private static Map<String, Map<String, Integer>> deviceState;
+    private boolean running = true;
 
-	private static String USERS_FILE = "extras/Users.txt";
-	private static String HOUSES_FILE = "extras/Houses.txt";
-	private static String PERMISSIONS_FILE = "extras/Permissions.txt";
-	private static String LOGS_DIR = "logs/";
-	private static String ATTESTATION_FILE = "extras/attestation.txt";
+    private static Map<String, String> users;
+    private static Map<String, String> houses;
+    private static Map<String, Map<String, String>> permissions;
+    private static Map<String, Map<String, Integer>> deviceState;
+    private static ServerFileManager fileManager;
 
+    // ============ INITIALIZATION METHODS ============
 
-	private static void initializeFilePaths() {
-		Path current = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize();
-		Path projectRoot = current;
-
-		while (current != null) {
-			Path usersFile = current.resolve("extras").resolve("Users.txt");
-			if (usersFile.toFile().exists()) {
-				projectRoot = current;
-				break;
-			}
-			current = current.getParent();
-		}
-
-		USERS_FILE = projectRoot.resolve("extras").resolve("Users.txt").toString();
-		HOUSES_FILE = projectRoot.resolve("extras").resolve("Houses.txt").toString();
-		PERMISSIONS_FILE = projectRoot.resolve("extras").resolve("Permissions.txt").toString();
-		LOGS_DIR = projectRoot.resolve("logs").toString();
-		ATTESTATION_FILE = projectRoot.resolve("extras").resolve("attestation.txt").toString();
-	}
-
-    private static int validateInput(String[] args){
-		int port = 0;
-		if (args.length > 1) {
-			System.out.println("Input Inválido: SpertaServer [port]");
-    		System.exit(-1);
-		}
-		if (args.length == 0)
-			return 0;
-		try {
-			port = Integer.parseInt(args[0]);
-		} catch (Exception e) {
-			System.out.println("A porta tem de ser de tipo Integer.");
-			System.exit(-1);
-		}
-		if (port < 1024 || port > 65535) {
-			System.err.println("A porta tem de estar entre 1024 e 65535.");
-			System.exit(-1);
-		}
-		return port;
-	}
-
-	public static void initialize_server_vars(){
-		users = new HashMap<>();
-		houses = new HashMap<>();
-		permissions = new HashMap<>();
-		deviceState = new HashMap<>();
-
-
-		try (BufferedReader reader = new BufferedReader(new FileReader(USERS_FILE))) {
-			String line;
-			boolean firstLine = true;
-
-			while ((line = reader.readLine()) != null) {
-				if (firstLine) {
-					firstLine = false;
-					continue;
-				}
-
-				line = line.trim();
-				if (line.isEmpty()) {
-					continue;
-				}
-
-				String[] parts = line.split(":", 2);
-				if (parts.length == 2) {
-					String user = parts[0].trim();
-					String pass = parts[1].trim();
-					if (!user.isEmpty()) {
-						users.put(user, pass);
-					}
-				}
-			}
-		} catch (IOException e) {
-			System.err.println("Erro ao ler " + USERS_FILE + ": " + e.getMessage());
-			System.exit(-1);
-
-		}
-
-		loadHousesFromFile();
-		loadPermissionsFromFile();
-		rebuildDeviceStateFromPersistence();
-	}
-
-	private static void rebuildDeviceStateFromPersistence() {
-		Map<String, Integer> restoredPerHouse = new HashMap<>();
-		int totalRestored = 0;
-
-		for (String house : houses.keySet()) {
-			deviceState.putIfAbsent(house, new HashMap<>());
-			restoredPerHouse.putIfAbsent(house, 0);
-		}
-
-		Path logsDir = Paths.get(LOGS_DIR).toAbsolutePath().normalize();
-		if (!Files.exists(logsDir) || !Files.isDirectory(logsDir)) {
-			printRebuildSummary(restoredPerHouse, totalRestored);
-			return;
-		}
-
-		try (DirectoryStream<Path> stream = Files.newDirectoryStream(logsDir, "*.csv")) {
-			for (Path logPath : stream) {
-				String fileName = logPath.getFileName().toString();
-				if (!fileName.endsWith(".csv")) {
-					continue;
-				}
-
-				normalizeLogHeader(logPath);
-
-				String baseName = fileName.substring(0, fileName.length() - 4);
-				int separator = baseName.lastIndexOf('_');
-				if (separator <= 0 || separator >= baseName.length() - 1) {
-					continue;
-				}
-
-				String house = baseName.substring(0, separator);
-				String device = baseName.substring(separator + 1);
-				if (!houses.containsKey(house)) {
-					continue;
-				}
-
-				int value = readLastDeviceValue(logPath, house, device);
-
-				Map<String, Integer> houseDevices = deviceState.get(house);
-				if (houseDevices == null) {
-					houseDevices = new HashMap<>();
-					deviceState.put(house, houseDevices);
-				}
-				Integer previous = houseDevices.put(device, value);
-
-				if (previous == null) {
-					restoredPerHouse.put(house, restoredPerHouse.getOrDefault(house, 0) + 1);
-					totalRestored++;
-				}
-			}
-		} catch (IOException e) {
-			System.err.println("Aviso ao reconstruir estado dos dispositivos: " + e.getMessage());
-		}
-
-		printRebuildSummary(restoredPerHouse, totalRestored);
-	}
-
-	private static void normalizeLogHeader(Path logPath) {
-		try {
-			if (!Files.exists(logPath)) {
-				return;
-			}
-
-			String firstLine;
-			try (BufferedReader reader = Files.newBufferedReader(logPath)) {
-				firstLine = reader.readLine();
-			}
-
-			if (firstLine == null) {
-				Files.writeString(logPath, "time; command" + System.lineSeparator());
-				return;
-			}
-
-			if (!"time; command".equalsIgnoreCase(firstLine)) {
-				String content = Files.readString(logPath);
-				Files.writeString(logPath, "time; command" + System.lineSeparator() + content);
-			}
-		} catch (IOException e) {
-			System.err.println("Erro ao normalizar cabeçalho do log " + logPath + ": " + e.getMessage());
-		}
-	}
-
-	private static void printRebuildSummary(Map<String, Integer> restoredPerHouse, int totalRestored) {
-		int housesLoaded = houses.size();
-		int housesWithRestoredDevices = 0;
-		List<String> sortedHouses = new ArrayList<>(houses.keySet());
-		Collections.sort(sortedHouses);
-
-		for (String house : sortedHouses) {
-			int restored = restoredPerHouse.getOrDefault(house, 0);
-			if (restored > 0) {
-				housesWithRestoredDevices++;
-			}
-			System.out.println("[startup][rebuild] house=" + house + " restoredDevices=" + restored);
-		}
-		System.out.println("[startup][rebuild] totalRestoredDevices=" + totalRestored);
-		System.out.println("[startup][rebuild] housesLoaded=" + housesLoaded + " housesWithRestoredDevices=" + housesWithRestoredDevices);
-	}
-
-	private static int readLastDeviceValue(Path logPath, String expectedHouse, String expectedDevice) {
-		int lastValue = 0;
-		try (BufferedReader reader = Files.newBufferedReader(logPath)) {
-			String line;
-			while ((line = reader.readLine()) != null) {
-				line = line.trim();
-				if (line.isEmpty() || line.startsWith("time;")) {
-					continue;
-				}
-
-				String commandPart = extractCommandPart(line);
-				if (commandPart == null || commandPart.isEmpty()) {
-					continue;
-				}
-
-				String[] cmdParts = commandPart.split("\\s+");
-				if (cmdParts.length >= 4 && "EC".equalsIgnoreCase(cmdParts[0])) {
-					if (!expectedHouse.equalsIgnoreCase(cmdParts[1]) || !expectedDevice.equalsIgnoreCase(cmdParts[2])) {
-						continue;
-					}
-					try {
-						int parsed = Integer.parseInt(cmdParts[3]);
-						if (parsed >= 0 && parsed <= 600) {
-							lastValue = parsed;
-						}
-					} catch (NumberFormatException ignored) {
-						System.err.println("Valor inválido no log: " + cmdParts[3]);
-					}
-				}
-			}
-		} catch (IOException e) {
-			System.err.println("Aviso ao ler log de dispositivo " + logPath + ": " + e.getMessage());
-		}
-		return lastValue;
-	}
-
-	private static String extractCommandPart(String line) {
-		String[] csvParts = line.split(";", 2);
-		if (csvParts.length == 2) {
-			String first = csvParts[0].trim();
-			String second = csvParts[1].trim();
-
-			// Current format: timestamp;command. Legacy format may be command;timestamp.
-			if (second.toUpperCase().startsWith("EC ")) {
-				return second;
-			}
-			if (first.toUpperCase().startsWith("EC ")) {
-				return first;
-			}
-			return null;
-		}
-
-		String raw = line.trim();
-		String upperRaw = raw.toUpperCase();
-		if (upperRaw.startsWith("EC ")) {
-			return raw;
-		}
-		return null;
-	}
-
-	private static void loadHousesFromFile() {
-		try (BufferedReader reader = new BufferedReader(new FileReader(HOUSES_FILE))) {
-			String line;
-			boolean firstLine = true;
-
-			while ((line = reader.readLine()) != null) {
-				if (firstLine) {
-					firstLine = false;
-					continue;
-				}
-
-				line = line.trim();
-				if (line.isEmpty()) {
-					continue;
-				}
-
-				String[] parts = line.split(":", 2);
-				if (parts.length == 2) {
-					String house = parts[0].trim();
-					String owner = parts[1].trim();
-					if (!house.isEmpty() && !owner.isEmpty()) {
-						houses.put(house, owner);
-					}
-				}
-			}
-		} catch (IOException e) {
-			System.err.println("ERRO ao ler " + HOUSES_FILE + ": " + e.getMessage());
-		}
-	}
-
-	private static void loadPermissionsFromFile() {
-		try (BufferedReader reader = new BufferedReader(new FileReader(PERMISSIONS_FILE))) {
-			String line;
-			boolean firstLine = true;
-
-			while ((line = reader.readLine()) != null) {
-				if (firstLine) {
-					firstLine = false;
-					continue;
-				}
-
-				line = line.trim();
-				if (line.isEmpty()) {
-					continue;
-				}
-
-				String[] parts = line.split(":", 3);
-				if (parts.length == 3) {
-					String house = parts[0].trim();
-					String user = parts[1].trim();
-					String section = parts[2].trim();
-					if (!house.isEmpty() && !user.isEmpty() && !section.isEmpty()) {
-					Map<String, String> housePerms = permissions.get(house);
-					if (housePerms == null) {
-						housePerms = new HashMap<>();
-						permissions.put(house, housePerms);
-					}
-					housePerms.put(user, section);
-					}
-				}
-			}
-		} catch (IOException e) {
-			System.err.println("Aviso ao ler " + PERMISSIONS_FILE + ": " + e.getMessage());
-		}
-	}
-
-	private static synchronized void appendUserToFile(String user, String pass) {
-		try (BufferedWriter writer = new BufferedWriter(new FileWriter(USERS_FILE, true))) {
-			writer.newLine();
-			writer.write(user + ":" + pass);
-		} catch (IOException e) {
-			System.err.println("Erro ao escrever em " + USERS_FILE + ": " + e.getMessage());
-		}
-	}
-
-    //FALTA
-    public static void main(String[] args){
-		int port = validateInput(args);
-		initializeFilePaths();
-		initialize_server_vars();
-
-		if (port ==0)
-			port = 22345;
-		SpertaServer server = new SpertaServer();
-		Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-			System.out.println("\nCTRL+C detetado. A fechar o servidor...");
-			server.closeServer();
-		}));
-    	server.startServer(port);
+    private static void initializeFileManager() {
+        fileManager = new ServerFileManager();
     }
 
-	public void startServer(int port){
+    private static int validateInput(String[] args) {
+        if (args.length > 1) {
+            System.out.println("Input Inválido: SpertaServer [port]");
+            System.exit(-1);
+        }
+        if (args.length == 0) {
+            return 0;
+        }
+        try {
+            int port = Integer.parseInt(args[0]);
+            if (port < MIN_PORT || port > MAX_PORT) {
+                System.err.println("A porta tem de estar entre " + MIN_PORT + " e " + MAX_PORT + ".");
+                System.exit(-1);
+            }
+            return port;
+        } catch (Exception e) {
+            System.out.println("A porta tem de ser de tipo Integer.");
+            System.exit(-1);
+        }
+        return 0;
+    }
+
+    public static void initialize_server_vars() {
+        users = fileManager.loadUsers();
+        houses = fileManager.loadHouses();
+        permissions = fileManager.loadPermissions();
+        deviceState = fileManager.rebuildDeviceStateFromPersistence(houses);
+    }
+
+    // ============ MAIN ENTRY POINT ============
+
+    public static void main(String[] args) {
+        int port = validateInput(args);
+        initializeFileManager();
+        initialize_server_vars();
+
+        if (port == 0) {
+            port = DEFAULT_PORT;
+        }
+
+        SpertaServer server = new SpertaServer();
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            System.out.println("\nCTRL+C detetado. A fechar o servidor...");
+            server.closeServer();
+        }));
+        server.startServer(port);
+    }
+
+    // ============ SERVER MANAGEMENT METHODS ============
+
+    public void startServer(int port) {
         System.out.println("À espera de clientes...");
 
         try {
@@ -384,20 +102,21 @@ public class SpertaServer extends Thread{
   
     }
 
-	public void closeServer() {
+    public void closeServer() {
         running = false;
-        try{
-            if(serverSocket != null && !serverSocket.isClosed()){
+        try {
+            if (serverSocket != null && !serverSocket.isClosed()) {
                 serverSocket.close();
                 System.out.println("O Servidor fechou!");
             }
-        }catch(IOException e){
+        } catch (IOException e) {
             System.err.println("Erro ao fechar o servidor: " + e.getMessage());
         }
     }
 
+    // ============ CLIENT HANDLER (INNER CLASS) ============
 
-	class ClientHandler extends Thread{
+    class ClientHandler extends Thread {
     	private Socket socket;
 		private ServerCommandHandler commandHandler;
 		private ServerNetwork network;
@@ -416,39 +135,26 @@ public class SpertaServer extends Thread{
 
 		private int clientInFile(String user, String pass) {
 			int correct = -1;
-			if (user == null || pass == null){
+			if (user == null || pass == null) {
 				return -1;
 			}
 
 			String storedPass = users.get(user);
-			if (storedPass == null){
+			if (storedPass == null) {
 				users.put(user, pass);
-				appendUserToFile(user, pass);
+				fileManager.appendUser(user, pass);
 				return 1;
 			}
-			if(storedPass.equals(pass)){
-					correct = 0;
+			if (storedPass.equals(pass)) {
+				correct = 0;
 			}
 
 			return correct;
-
 		}
 
 		private boolean attestClient() throws IOException {
-			String attestationMessage;
-            attestationMessage = (String) network.receive();
-
-            String expectedAttestation = null;
-			try (BufferedReader reader = new BufferedReader(new FileReader(ATTESTATION_FILE))) {
-				String line;
-				while ((line = reader.readLine()) != null) {
-					line = line.trim();
-					if (!line.isEmpty()) {
-						expectedAttestation = line;
-						break;
-					}
-				}
-			}
+			String attestationMessage = (String) network.receive();
+			String expectedAttestation = fileManager.getAttestationData();
 
 			boolean valid = false;
 			if (expectedAttestation != null && attestationMessage != null && attestationMessage.startsWith("ATTEST ")) {
@@ -465,15 +171,14 @@ public class SpertaServer extends Thread{
 			return false;
 		}
 
+		// ============ COMMAND EXECUTION METHODS ============
+
 		private String authenticateClient() throws IOException {
-			String user;
-			String passwd;
+			String user = (String) network.receive();
+			String passwd = (String) network.receive();
+			System.out.println("Utilizador: " + user + "; Password: " + passwd);
 
-            user = (String) network.receive();
-            passwd = (String) network.receive();
-            System.out.println("Utilizador: " + user + "; Password: " + passwd);
-
-            int authenticated = clientInFile(user, passwd);
+			int authenticated = clientInFile(user, passwd);
 			if (user != null && !user.isEmpty() && authenticated >= 0) {
 				if (authenticated == 1) {
 					network.send("OK-NEW-USER");
@@ -485,78 +190,79 @@ public class SpertaServer extends Thread{
 
 			network.send("WRONG-PWD");
 
-            passwd = (String) network.receive();
-            System.out.println("Password recebida: " + passwd);
-            authenticated = clientInFile(user, passwd);
-            if (authenticated >= 0) {
-                network.send("OK-USER");
-                return user;
-            }
+			passwd = (String) network.receive();
+			System.out.println("Password recebida: " + passwd);
+			authenticated = clientInFile(user, passwd);
+			if (authenticated >= 0) {
+				network.send("OK-USER");
+				return user;
+			}
 
-            return null;
+			return null;
 		}
 
 		@Override
-		public void run(){
+		public void run() {
 			try {
-
 				if (!attestClient()) {
-					network.close();
-					socket.close();
+					closeConnection();
 					return;
 				}
 
 				String user = authenticateClient();
 				if (user == null || user.isEmpty()) {
-					network.close();
-					socket.close();
+					closeConnection();
 					return;
 				}
 
-				// Command loop to handle main.client commands
-                boolean connected = true;
-                while (connected) {
-					String cmdStr =  (String) network.receive();
-					if (cmdStr == null){
-						break;
-					}
-					System.out.printf("Comando de %s: %s\n", user, cmdStr);
-
-					String response = commandHandler.handleCommand(cmdStr, user);
-					String[] parts = cmdStr.trim().split("\\s+");
-					if (parts[0].equalsIgnoreCase("RH")) {
-						if (response.equals("OK")) {
-							System.out.println("RH RETURNED OK");
-							String device = parts[2];
-							String house = parts[1];
-							System.out.printf("RH: house=%s, device=%s\n", house, device);
-							commandHandler.RH_sendFile(house, device);
-						} else {
-							network.send(response);
-						}
-					} else if (parts[0].equalsIgnoreCase("RT")) {
-						if (response.equals("OK")) {
-							System.out.println("RT RETURNED OK");
-							String house = parts[1];
-							System.out.printf("RT: house=%s\n", house);
-							commandHandler.RT_sendFile(house, user);
-						} else {
-							network.send(response);
-						}
-					} else {
-						network.send(response);
-					}
-
-				}
-
-                network.close();
-				socket.close();
+				handleClientCommands(user);
+				closeConnection();
 
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
 		}
-    }
 
+		private void handleClientCommands(String user) throws IOException {
+			boolean connected = true;
+			while (connected) {
+				String cmdStr = (String) network.receive();
+				if (cmdStr == null) {
+					break;
+				}
+				System.out.printf("Comando de %s: %s%n", user, cmdStr);
+
+				String response = commandHandler.handleCommand(cmdStr, user);
+				String[] parts = cmdStr.trim().split("\\s+");
+				if (parts[0].equalsIgnoreCase("RH")) {
+					if (response.equals("OK")) {
+						System.out.println("RH RETURNED OK");
+						String device = parts[2];
+						String house = parts[1];
+						System.out.printf("RH: house=%s, device=%s%n", house, device);
+						commandHandler.RH_sendFile(house, device);
+					} else {
+						network.send(response);
+					}
+				} else if (parts[0].equalsIgnoreCase("RT")) {
+					if (response.equals("OK")) {
+						System.out.println("RT RETURNED OK");
+						String house = parts[1];
+						System.out.printf("RT: house=%s%n", house);
+						commandHandler.RT_sendFile(house, user);
+					} else {
+						network.send(response);
+					}
+				} else {
+					network.send(response);
+				}
+			}
+		}
+
+		private void closeConnection() throws IOException {
+			network.close();
+			socket.close();
+		}
+	}
 
 }

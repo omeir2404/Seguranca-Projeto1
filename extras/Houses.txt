@@ -2,4 +2,3 @@ House:Owner
 
 casa:Nexus
 lama:Nexus
-fcul:Nexus

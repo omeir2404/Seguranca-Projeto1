@@ -441,13 +441,17 @@ public class ServerCommandHandler {
         }
 
         Set<String> sections = new LinkedHashSet<>();
+        Set<String> seen = new HashSet<>();
         String[] parts = trimmed.split(",");
         for (String part : parts) {
             String token = part.trim();
             if (token.isEmpty()) {
                 continue;
             }
-            sections.add(String.valueOf(Character.toUpperCase(token.charAt(0))));
+            String key = token.toUpperCase();
+            if (seen.add(key)) {
+                sections.add(token);
+            }
         }
 
         if (sections.isEmpty()) {
@@ -480,11 +484,11 @@ public class ServerCommandHandler {
         Set<String> allowed = new LinkedHashSet<>();
         for (String token : normalizedGranted.split(",")) {
             if (!token.isBlank()) {
-                allowed.add(token);
+                allowed.add(token.trim().toUpperCase());
             }
         }
         for (String token : normalizedRequested.split(",")) {
-            if (!allowed.contains(token)) {
+            if (!allowed.contains(token.trim().toUpperCase())) {
                 return false;
             }
         }
@@ -507,7 +511,44 @@ public class ServerCommandHandler {
         if (trimmed.isEmpty()) {
             return null;
         }
-        return trimmed.toLowerCase();
+        return trimmed;
+    }
+
+    private Set<String> getExistingSections(String house) {
+        Set<String> sections = new LinkedHashSet<>();
+        Map<String, Integer> devices = deviceState.get(house);
+        if (devices == null || devices.isEmpty()) {
+            return sections;
+        }
+
+        for (String device : devices.keySet()) {
+            String section = getStoredDeviceSection(house, device);
+            if (section == null || section.isBlank()) {
+                section = deviceSection(device);
+            }
+            String normalized = normalizeSectionName(section);
+            if (normalized != null) {
+                sections.add(normalized);
+            }
+        }
+        return sections;
+    }
+
+    private boolean sectionExistsInHouse(String house, String section) {
+        String normalizedSection = normalizeSectionName(section);
+        if (normalizedSection == null) {
+            return false;
+        }
+        if ("all".equalsIgnoreCase(normalizedSection)) {
+            return true;
+        }
+
+        for (String existing : getExistingSections(house)) {
+            if (existing.equalsIgnoreCase(normalizedSection)) {
+                return true;
+            }
+        }
+        return false;
     }
 
 
@@ -551,6 +592,9 @@ public class ServerCommandHandler {
         }
         if (!houses.get(house).equals(user)) {
             return "NOPERM";
+        }
+        if (!sectionExistsInHouse(house, section)) {
+            return "NOK";
         }
 
         Map<String, String> housePermissions = permissions.get(house);
@@ -769,7 +813,11 @@ public class ServerCommandHandler {
     }
 
     private boolean hasDeviceAccess(String house, String user, String deviceName) {
-        return checkPermissions(house, user, deviceSection(deviceName));
+        String section = getStoredDeviceSection(house, deviceName);
+        if (section == null || section.isBlank()) {
+            section = deviceSection(deviceName);
+        }
+        return checkPermissions(house, user, section);
     }
 
     private boolean hasAnyAccessibleDevice(Map<String, Integer> devices, String house, String user) {

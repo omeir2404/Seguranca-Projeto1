@@ -1,2 +1,0 @@
-Home:Device:Value
-casa:S1:0

@@ -91,7 +91,7 @@ public class SpertaClient {
     private boolean isAuthenticatedResponse(String authResponse) {
         if(authResponse == null)
             return false;
-        return authResponse.equals("OK-USER") || authResponse.equals("OK-NEW-USER");
+        return "OK-USER".equals(authResponse) || "OK-NEW-USER".equals(authResponse);
     }
 
     private boolean authenticate(Scanner sc, String userId, String password){
@@ -101,7 +101,7 @@ public class SpertaClient {
         String authResponse = (String) network.receive();
         System.out.println("Servidor: " + authResponse);
 
-        if (authResponse.equals("WRONG-PWD")) {
+        if ("WRONG-PWD".equals(authResponse)) {
             System.out.print("Escreva aqui a password correta: ");
             password = sc.nextLine();
             network.send(password);
@@ -116,8 +116,10 @@ public class SpertaClient {
             return true;
         }
 
-        if (authResponse.equals("WRONG-PWD")) {
+        if ("WRONG-PWD".equals(authResponse)) {
             System.out.println("Password Errada!");
+        } else if ("USER-ALREADY-CONNECTED".equals(authResponse)) {
+            System.out.println("Este utilizador já está ligado noutra sessão.");
         } else {
             System.out.println("A Autenticação falhou: " + authResponse);
         }
@@ -187,7 +189,7 @@ public class SpertaClient {
         network.send(attestMsg);
 
         String response = (String) network.receive();
-        if (response.equals("ATTEST OK")) {
+        if ("ATTEST OK".equals(response)) {
             System.out.println("ATTESTATION OK");
             return true;
         } else {

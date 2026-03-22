@@ -4,6 +4,7 @@ import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class SpertaServer extends Thread {
 
@@ -18,6 +19,7 @@ public class SpertaServer extends Thread {
     private static Map<String, String> houses;
     private static Map<String, Map<String, String>> permissions;
     private static Map<String, Map<String, Integer>> deviceState;
+	private static Set<String> activeUsers;
     private static ServerFileManager fileManager;
 
     // ============ INITIALIZATION METHODS ============
@@ -57,6 +59,7 @@ public class SpertaServer extends Thread {
         houses = fileManager.loadHouses();
         permissions = fileManager.loadPermissions();
         deviceState = fileManager.rebuildDeviceStateFromPersistence(houses);
+		activeUsers = ConcurrentHashMap.newKeySet();
     }
 
     // ============ MAIN ENTRY POINT ============
@@ -188,6 +191,10 @@ public class SpertaServer extends Thread {
 
 			int authenticated = clientInFile(user, passwd);
 			if (user != null && !user.isEmpty() && authenticated >= 0) {
+				if (!activeUsers.add(user)) {
+					network.send("USER-ALREADY-CONNECTED");
+					return null;
+				}
 				if (authenticated == 1) {
 					network.send("OK-NEW-USER");
 				} else {
@@ -202,6 +209,10 @@ public class SpertaServer extends Thread {
 			System.out.println("Password recebida: " + passwd);
 			authenticated = clientInFile(user, passwd);
 			if (authenticated >= 0) {
+				if (!activeUsers.add(user)) {
+					network.send("USER-ALREADY-CONNECTED");
+					return null;
+				}
 				network.send("OK-USER");
 				return user;
 			}
@@ -211,23 +222,30 @@ public class SpertaServer extends Thread {
 
 		@Override
 		public void run() {
+			String user = null;
 			try {
 				if (!attestClient()) {
-					closeConnection();
 					return;
 				}
 
-				String user = authenticateClient();
+				user = authenticateClient();
 				if (user == null || user.isEmpty()) {
-					closeConnection();
 					return;
 				}
 
 				handleClientCommands(user);
-				closeConnection();
 
 			} catch (IOException e) {
 				e.printStackTrace();
+			} finally {
+				if (user != null && !user.isEmpty()) {
+					activeUsers.remove(user);
+				}
+				try {
+					closeConnection();
+				} catch (IOException e) {
+					System.err.println("Erro ao fechar conexão do cliente: " + e.getMessage());
+				}
 			}
 		}
 

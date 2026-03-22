@@ -85,10 +85,10 @@
 ## Robustness and Error Handling
 - [x] Handle multiple simultaneous TCP clients. 
 - [x] Handle `EOFException` and broken sockets cleanly.
-- [ ] Prevent one failed request from terminating main.client thread.
+- [x] Prevent one failed request from terminating main.client thread.
 - [x] Validate integer parsing and command arity safely.
 - [x] Cada dispositivo tem um ficheiro de log, no formato csv, o qual contém o seu histórico de funcionamento, ou seja, regista todos os comandos de operação (ligado, ligado com temporização ou desligado) do dispositivo, incluindo a data e hora da sua ocorrência
-- [ ] same user cant connect twice simultaniously
+- [x] same user cant connect twice simultaniously
 
 ## Build, Package, and Delivery
 - [ ] Build runnable main.client and main.server JARs.
@@ -113,7 +113,7 @@
       todos os comandos de operação (ligado, ligado com temporização ou desligado) do dispositivo, incluindo a data e hora da sua ocorrência."
       **FIXED**: Device logs now created in nested structure `server_data/homes/<house>/<section>/<device>.csv` via `getDeviceLogPath()` and `updateDeviceLogs()`.
 
-- [ ] `EC` nao esta a funcionar corretamente
+- [x] `EC` nao esta a funcionar corretamente
 - [x] `RT` e `RH` nao guarda os ficheiros no lugar correto
       **FIXED**: RT saves to `client_data/<userId>/status_<house>.txt` | RH saves to `client_data/<userId>/history_<device>_<house>.csv` 
       (via updated `SpertaClient.commandLoop()` with userId parameter).
@@ -123,7 +123,7 @@
       increments per-section counter, and persists immediately on every RD command.
 
 - [x] seccoes novas sao criadas com `RD` (ou nao deixamos que aconteca ou atualizamos os logs para os incluir)
-    - [ ] EU (NEXUS) acho que podemos deixar criar, pois cada casa é diferent e pode ser peroonalizado
+    - [ ] EU (NEXUS) acho que podemos deixar criar, pois cada casa é diferent e pode ser personalizado
 - [x] `RD` so ve a primeira letra do input (RD casa1 hahah -> assume seccao = H)
 - [x] `RT` é suposto enviar os logs mais recentes por dispositivo mas enviamos TUDO (servercomandhandler -> 458 - 500)
 - [ ] `RT` devia enviar `NODATA` se nao houve mudanca -> aberto a interpretacao??
@@ -133,8 +133,6 @@
 - [ ] `ls <home>` nao funciona com permissoes == `all`
 - [x] Ver se da para as secoes do homes tenham nomes completos e nao so a letra (seccao Garden e nao G)
 - [ ] ADD esta a criar seccoes novas e npove a primeira letra da seccao como o ponto anterior
-- [ ] `RT` nunca manda NODATA?? mesmo quando no ha dados
-
 ## Lista de Metodos para rever
 ### `src/main/server/SpertaServer.java`
 

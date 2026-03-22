@@ -129,10 +129,10 @@
 - [ ] `RT` devia enviar `NODATA` se nao houve mudanca -> aberto a interpretacao??
 - [x] confirmar que `Attestation` pode ser feito no makefile ou se temos de fazer de outra forma 
       **CONFIRMED**: Attestation is correctly written to `server_data/auth/attestation.txt` via Makefile during compile.
-- [ ] `Insere aqui o comando: add Eclipse casa pall` Deu `OK` e assumiu Secao == `P`
+- [x] `Insere aqui o comando: add Eclipse casa pall` Deu `OK` e assumiu Secao == `P`
 - [ ] `ls <home>` nao funciona com permissoes == `all`
 - [x] Ver se da para as secoes do homes tenham nomes completos e nao so a letra (seccao Garden e nao G)
-- [ ] ADD esta a criar seccoes novas e npove a primeira letra da seccao como o ponto anterior
+- [x] ADD esta a criar seccoes novas e npove a primeira letra da seccao como o ponto anterior
 ## Lista de Metodos para rever
 ### `src/main/server/SpertaServer.java`
 

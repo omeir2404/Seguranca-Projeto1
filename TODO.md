@@ -57,7 +57,7 @@
 
 ## Command: RT
 - [x] Implement `RT <hm>`.
-- [ ] Build data file containing latest command per accessible device (currently sends full logs).
+- [x] Build data file containing latest command per accessible device (currently sends full logs).
 - [x] Use protocol: `OK` + `LONG size` + file bytes.
 - [x] Return one of: `NODATA`, `NOHM`, `NOPERM` when invalid.
 - [x] Save received file locally on main.client.
@@ -83,11 +83,12 @@
 - [x] LS command - list houses/devices accessible to user (bonus, not in spec). 
 
 ## Robustness and Error Handling
-- [ ] Handle multiple simultaneous TCP clients. 
-- [ ] Handle `EOFException` and broken sockets cleanly.
+- [x] Handle multiple simultaneous TCP clients. 
+- [x] Handle `EOFException` and broken sockets cleanly.
 - [ ] Prevent one failed request from terminating main.client thread.
-- [ ] Validate integer parsing and command arity safely.
-- [ ] Cada dispositivo tem um ficheiro de log, no formato csv, o qual contém o seu histórico de funcionamento, ou seja, regista todos os comandos de operação (ligado, ligado com temporização ou desligado) do dispositivo, incluindo a data e hora da sua ocorrência
+- [x] Validate integer parsing and command arity safely.
+- [x] Cada dispositivo tem um ficheiro de log, no formato csv, o qual contém o seu histórico de funcionamento, ou seja, regista todos os comandos de operação (ligado, ligado com temporização ou desligado) do dispositivo, incluindo a data e hora da sua ocorrência
+- [ ] same user cant connect twice simultaniously
 
 ## Build, Package, and Delivery
 - [ ] Build runnable main.client and main.server JARs.
@@ -101,9 +102,9 @@
 
 ## perguntar:
 - [x] Se os logs(e dados a persistir) é para fazer de forma que quermos ou se ha um formato especifico a seguir?
-        - [ ] RESPOSTA: Os Users e Attestation tem de ser como no enunciado(ja esta correto), o resto é como        acharemos melhores
+        - [x] RESPOSTA: Os Users e Attestation tem de ser como no enunciado(ja esta correto), o resto é como        acharemos melhores
 - [x] se enquanto o servidor tiver a correr, devia reconhecer novos utilizadores adicionados ao ficheiro a mao?
-        - [ ] RESPOSTA: É como nos queremos, nós temos o server a ler o ficheiro no inicio e a guardar a informacao, depois nao le mais vezes, so escreve em caso de New User
+        - [x] RESPOSTA: É como nos queremos, nós temos o server a ler o ficheiro no inicio e a guardar a informacao, depois nao le mais vezes, so escreve em caso de New User
 
 
 ## Bugs e Erros encontrados
@@ -121,14 +122,18 @@
       **FIXED**: Implemented `allocateNextDeviceName()` method (synchronized) that atomically reads counters from `section_counters.txt`, 
       increments per-section counter, and persists immediately on every RD command.
 
-- [ ] seccoes novas sao criadas com `RD` (ou nao deixamos que aconteca ou atualizamos os logs para os incluir)
-- [ ] `RD` so ve a primeira letra do input (RD casa1 hahah -> assume seccao = H)
-- [ ] `RT` é suposto enviar os logs mais recentes por dispositivo mas enviamos TUDO (servercomandhandler -> 458 - 500)
+- [x] seccoes novas sao criadas com `RD` (ou nao deixamos que aconteca ou atualizamos os logs para os incluir)
+    - [ ] EU (NEXUS) acho que podemos deixar criar, pois cada casa é diferent e pode ser peroonalizado
+- [x] `RD` so ve a primeira letra do input (RD casa1 hahah -> assume seccao = H)
+- [x] `RT` é suposto enviar os logs mais recentes por dispositivo mas enviamos TUDO (servercomandhandler -> 458 - 500)
 - [ ] `RT` devia enviar `NODATA` se nao houve mudanca -> aberto a interpretacao??
 - [x] confirmar que `Attestation` pode ser feito no makefile ou se temos de fazer de outra forma 
       **CONFIRMED**: Attestation is correctly written to `server_data/auth/attestation.txt` via Makefile during compile.
 - [ ] `Insere aqui o comando: add Eclipse casa pall` Deu `OK` e assumiu Secao == `P`
 - [ ] `ls <home>` nao funciona com permissoes == `all`
+- [x] Ver se da para as secoes do homes tenham nomes completos e nao so a letra (seccao Garden e nao G)
+- [ ] ADD esta a criar seccoes novas e npove a primeira letra da seccao como o ponto anterior
+- [ ] `RT` nunca manda NODATA?? mesmo quando no ha dados
 
 ## Lista de Metodos para rever
 ### `src/main/server/SpertaServer.java`
@@ -184,28 +189,27 @@
 
 ### `src/main/server/ServerFileManager.java`
 
-- [ ] `ServerFileManager()`
-- [ ] `initializeFilePaths()`
-- [ ] `findProjectRoot()`
-- [ ] `getProjectRoot()`
-- [ ] `ensurePersistenceStructure()`
-- [ ] `ensureFileExists(Path filePath)`
-- [ ] `loadUsers()`
-- [ ] `loadHouses()`
-- [ ] `loadPermissions()`
+- [x] `ServerFileManager()`
+- [x] `initializeFilePaths()`
+- [x] `findProjectRoot()`
+- [x] `getProjectRoot()`
+- [x] `ensurePersistenceStructure()`
+- [x] `ensureFileExists(Path filePath)`
+- [x] `loadUsers()`
+- [x] `loadHouses()`
+- [x] `loadPermissions()`
 - [ ] `rebuildDeviceStateFromPersistence(Map<String, String> houses)`
-- [ ] `normalizeLogHeader(Path logPath)`
-- [ ] `readLastDeviceValue(Path logPath, String expectedHouse, String expectedDevice)`
-- [ ] `extractCommandPart(String line)`
-- [ ] `extractCommandFromLine(String line)`
-- [ ] `appendUser(String user, String pass)`
-- [ ] `getAttestationData()`
-- [ ] `printRebuildSummary(Map<String, Integer> restoredPerHouse, int totalRestored)`
-- [ ] `getUsersFile()`
-- [ ] `getHousesFile()`
-- [ ] `getPermissionsFile()`
-- [ ] `getLogsDir()`
-- [ ] `getAttestationFile()`
+- [x] `normalizeLogHeader(Path logPath)`
+- [x] `readLastDeviceValue(Path logPath, String expectedHouse, String expectedDevice)`
+- [x] `extractEcCommandFromLine(String line)`
+- [x] `appendUser(String user, String pass)`
+- [x] `getAttestationData()`
+- [x] `printRebuildSummary(Map<String, Integer> restoredPerHouse, int totalRestored)`
+- [x] `getUsersFile()`
+- [x] `getHousesFile()`
+- [x] `getPermissionsFile()`
+- [x] `getLogsDir()`
+- [x] `getAttestationFile()`
 
 ### `src/main/server/ServerNetwork.java`
 

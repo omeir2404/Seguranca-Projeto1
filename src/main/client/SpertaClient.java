@@ -89,7 +89,9 @@ public class SpertaClient {
 
 
     private boolean isAuthenticatedResponse(String authResponse) {
-        return authResponse.equals("OK-USER") || authResponse.equals("OK-NEW-USER") || authResponse.equals("Cliente connectado com sucesso!");
+        if(authResponse == null)
+            return false;
+        return authResponse.equals("OK-USER") || authResponse.equals("OK-NEW-USER");
     }
 
     private boolean authenticate(Scanner sc, String userId, String password){

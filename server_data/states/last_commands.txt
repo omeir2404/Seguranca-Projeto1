@@ -1,4 +1,0 @@
-Home:Device:Value
-lama:P1:0
-casa:P1:0
-lama:W1:21

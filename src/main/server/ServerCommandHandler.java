@@ -18,6 +18,7 @@ public class ServerCommandHandler {
 	private static String PERMISSIONS_FILE = "server_data/metadata/permissions.txt";
     private static String HOUSE_METADATA_FILE = "server_data/metadata/house_metadata.txt";
     private static String COUNTERS_FILE = "server_data/metadata/section_counters.txt";
+    private static String DEVICE_SECTIONS_FILE = "server_data/metadata/device_sections.txt";
     private static String LAST_COMMANDS_FILE = "server_data/states/last_commands.txt";
     private static String HOUSE_AUDIT_LOG = "server_data/metadata/houses.log";
     private static String LOG_DIR = "server_data/homes";
@@ -37,6 +38,7 @@ public class ServerCommandHandler {
     	HOUSES_FILE = serverDataRoot.resolve("metadata").resolve("homes_registry.txt").toString();
         HOUSE_METADATA_FILE = serverDataRoot.resolve("metadata").resolve("house_metadata.txt").toString();
         COUNTERS_FILE = serverDataRoot.resolve("metadata").resolve("section_counters.txt").toString();
+        DEVICE_SECTIONS_FILE = serverDataRoot.resolve("metadata").resolve("device_sections.txt").toString();
         LAST_COMMANDS_FILE = serverDataRoot.resolve("states").resolve("last_commands.txt").toString();
         HOUSE_AUDIT_LOG = serverDataRoot.resolve("metadata").resolve("houses.log").toString();
         LOG_DIR = serverDataRoot.resolve("homes").toString();
@@ -44,11 +46,79 @@ public class ServerCommandHandler {
     }
 
     private Path getDeviceLogPath(String house, String device) {
-        String section = deviceSection(device);
+        String section = getStoredDeviceSection(house, device);
+        if (section == null || section.isBlank()) {
+            section = deviceSection(device);
+        }
         if (section == null) {
             section = "UNKNOWN";
         }
         return Paths.get(LOG_DIR, house, section, device + ".csv");
+    }
+
+    private synchronized void persistDeviceSection(String house, String device, String sectionName) {
+        try {
+            ensureFileHeader(DEVICE_SECTIONS_FILE, "House:Device:Section");
+            Path mappingPath = Paths.get(DEVICE_SECTIONS_FILE).toAbsolutePath().normalize();
+            List<String> lines = Files.exists(mappingPath)
+                    ? Files.readAllLines(mappingPath, StandardCharsets.UTF_8)
+                    : new ArrayList<>();
+
+            if (lines.isEmpty()) {
+                lines.add("House:Device:Section");
+            }
+
+            String key = house + ":" + device + ":";
+            String replacement = house + ":" + device + ":" + sectionName;
+            boolean updated = false;
+
+            for (int i = 1; i < lines.size(); i++) {
+                String line = lines.get(i).trim();
+                if (line.startsWith(key)) {
+                    lines.set(i, replacement);
+                    updated = true;
+                    break;
+                }
+            }
+
+            if (!updated) {
+                lines.add(replacement);
+            }
+
+            Files.write(mappingPath, lines, StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+        } catch (IOException e) {
+            System.err.println("Erro ao persistir secao do dispositivo: " + e.getMessage());
+        }
+    }
+
+    private synchronized String getStoredDeviceSection(String house, String device) {
+        try {
+            Path mappingPath = Paths.get(DEVICE_SECTIONS_FILE).toAbsolutePath().normalize();
+            if (!Files.exists(mappingPath)) {
+                return null;
+            }
+
+            List<String> lines = Files.readAllLines(mappingPath, StandardCharsets.UTF_8);
+            String key = house + ":" + device + ":";
+
+            for (int i = 1; i < lines.size(); i++) {
+                String line = lines.get(i).trim();
+                if (!line.startsWith(key)) {
+                    continue;
+                }
+                String[] parts = line.split(":", 3);
+                if (parts.length == 3) {
+                    String section = parts[2].trim();
+                    if (!section.isEmpty()) {
+                        return section;
+                    }
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("Erro ao ler secao do dispositivo: " + e.getMessage());
+        }
+        return null;
     }
 
     private synchronized void persistLastCommandValue(String house, String device, int value) {
@@ -428,6 +498,18 @@ public class ServerCommandHandler {
         return String.valueOf(Character.toUpperCase(deviceName.charAt(0)));
     }
 
+//fiz afora
+    private String normalizeSectionName(String section) {
+        if (section == null) {
+            return null;
+        }
+        String trimmed = section.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        return trimmed.toLowerCase();
+    }
+
 
     //Método CREATE
     // TODO maybe verify for malicious input in the house name
@@ -498,7 +580,12 @@ public class ServerCommandHandler {
             return "NOPERM";
         }
 
-        String sectionLetter = String.valueOf(Character.toUpperCase(section.charAt(0)));
+        String sectionName = normalizeSectionName(section);
+        if (sectionName == null) {
+            return "NOK";
+        }
+
+        String sectionLetter = String.valueOf(Character.toUpperCase(sectionName.charAt(0)));
 
         Map<String, Integer> devices = deviceState.get(house);
         if (devices == null) {
@@ -511,9 +598,10 @@ public class ServerCommandHandler {
             return "NOK";
         }
         devices.put(deviceName, 0);
+        persistDeviceSection(house, deviceName, sectionName);
         persistLastCommandValue(house, deviceName, 0);
   
-        updateDeviceLogs("RD " + house + " " + section, house, deviceName);
+        updateDeviceLogs("RD " + house + " " + sectionName, house, deviceName);
         return "OK";
     }
 
@@ -588,25 +676,31 @@ public class ServerCommandHandler {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        List<FileInputStream> files = new LinkedList<>();
+
+        List<InputStream> files = new LinkedList<>();
         final long[] totalSize = {0};
+        Map<String, Integer> houseDevices = deviceState.get(house);
         for (String deviceName : allowedDevices) {
             try {
-                Path deviceLogPath = getDeviceLogPath(house, deviceName);
-                File f = deviceLogPath.toFile();
-                if (!f.exists()) {
+                Integer currentValue = houseDevices.get(deviceName);
+                if (currentValue == null) {
                     continue;
                 }
-                files.add(new FileInputStream(f));
+
+                String line = "EC " + house + " " + deviceName + " " + currentValue;
+                byte[] lineBytes = line.getBytes(StandardCharsets.UTF_8);
+
+                files.add(new ByteArrayInputStream(lineBytes));
                 files.add(new FileInputStream(lineSeparatorFile));
-                totalSize[0] += f.length() + lineSeparatorFile.length();
+                totalSize[0] += lineBytes.length + lineSeparatorFile.length();
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
             }
         }
-        try (SequenceInputStream s = new SequenceInputStream(Collections.enumeration(files))) {
+
+        try (SequenceInputStream statusStream = new SequenceInputStream(Collections.enumeration(files))) {
             serverNetwork.send("OK");
-            serverNetwork.sendFile(s, totalSize[0]);
+            serverNetwork.sendFile(statusStream, totalSize[0]);
 
         } catch (IOException e) {
             e.printStackTrace();

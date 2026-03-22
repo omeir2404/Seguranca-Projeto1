@@ -1,4 +1,0 @@
-House:Owner
-
-casa:Eclipse
-lama:Nexus

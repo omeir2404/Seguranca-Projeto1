@@ -25,8 +25,7 @@ import java.util.*;
 *      ============ LOG FILE METHODS ============
 - normalizeLogHeader(Path logPath)
 - readLastDeviceValue(Path logPath, String expectedHouse, String expectedDevice)
-- extractCommandPart(String line)
-- extractCommandFromLine(String line)
+- extractEcCommandFromLine(String line)
 - appendUser(String user, String pass)
 
 *      ============ UTILITY METHODS ============
@@ -375,11 +374,11 @@ public class ServerFileManager {
             String line;
             while ((line = reader.readLine()) != null) {
                 line = line.trim();
-                if (line.isEmpty() || line.startsWith("time;")) {
-                    continue;
+                if (line.isEmpty() || line.startsWith("time;")) { 
+                    continue; 
                 }
 
-                String commandPart = extractCommandPart(line);
+                String commandPart = extractEcCommandFromLine(line);
                 if (commandPart == null || commandPart.isEmpty()) {
                     continue;
                 }
@@ -389,6 +388,7 @@ public class ServerFileManager {
                     if (!expectedHouse.equalsIgnoreCase(cmdParts[1]) || !expectedDevice.equalsIgnoreCase(cmdParts[2])) {
                         continue;
                     }
+
                     try {
                         int parsed = Integer.parseInt(cmdParts[3]);
                         if (parsed >= MIN_DEVICE_VALUE && parsed <= MAX_DEVICE_VALUE) {
@@ -406,17 +406,9 @@ public class ServerFileManager {
     }
 
     /**
-     * Extracts the command part from a CSV line.
-     * Handles both current (timestamp;command) and legacy (command;timestamp) formats.
-     */
-    private String extractCommandPart(String line) {
-        return extractCommandFromLine(line);
-    }
-
-    /**
      * Helper method to extract command from CSV line.
      */
-    private String extractCommandFromLine(String line) {
+    private String extractEcCommandFromLine(String line) {
         String[] csvParts = line.split(";", 2);
         if (csvParts.length == 2) {
             String first = csvParts[0].trim();

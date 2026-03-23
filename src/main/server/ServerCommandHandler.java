@@ -502,7 +502,6 @@ public class ServerCommandHandler {
         return String.valueOf(Character.toUpperCase(deviceName.charAt(0)));
     }
 
-//fiz afora
     private String normalizeSectionName(String section) {
         if (section == null) {
             return null;

@@ -1,3 +1,0 @@
-Home:Device:Value
-house1:A1:0
-casa67:S1:20

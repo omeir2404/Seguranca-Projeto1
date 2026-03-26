@@ -1,3 +1,10 @@
+// ##############################################################
+//           Autores:                Numero Aluno:              # 
+//        - Omeir Haroon               61810                    # 
+//        - Isa David                  61871                    # 
+//        - Diogo Roque                61857                    # 
+// ##############################################################
+
 package main.server;
 
 import java.io.*;
@@ -66,9 +73,7 @@ public class ServerFileManager {
         ensurePersistenceStructure();
     }
 
-    /**
-     * Initializes and validates all file paths based on project structure.
-     */
+    //Initializes and validates all file paths based on project structure.
     private void initializeFilePaths() {
         this.projectRoot = findProjectRoot();
         this.usersFile = projectRoot.resolve(SERVER_DATA_DIR).resolve(AUTH_DIR).resolve(USERS_FILENAME).toString();
@@ -78,9 +83,7 @@ public class ServerFileManager {
         this.attestationFile = projectRoot.resolve(SERVER_DATA_DIR).resolve(AUTH_DIR).resolve(ATTESTATION_FILENAME).toString();
     }
 
-    /**
-     * Finds the project root directory.
-     */
+    //Finds the project root directory.
     private Path findProjectRoot() {
         Path current = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize();
         Path projectRoot = current;

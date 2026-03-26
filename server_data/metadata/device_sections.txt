@@ -1,3 +1,0 @@
-House:Device:Section
-house1:A1:ar
-casa67:S1:s

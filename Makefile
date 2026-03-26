@@ -1,9 +1,15 @@
-.PHONY: compile run clean
+ ##############################################################
+ #         Autores:                Numero Aluno:              # 
+ #       - Omeir Haroon               61810                   # 
+ #       - Isa David                  61871                   # 
+ #       - Diogo Roque                61857                   # 
+ ##############################################################
 
 JAVAC = javac
 JAVA = java
 SRC_DIR = src
 BIN_DIR = bin
+DIST_DIR = dist
 SERVER_CLASS = main.server.SpertaServer
 SERVER_ARGS = 2223
 CLIENT_CLASS = main.client.SpertaClient
@@ -29,10 +35,6 @@ compile_client:
 compile_server:
 	@$(JAVAC) -d $(BIN_DIR) $(SRC_DIR)/main/server/*.java 
 
-
-# size_check: 
-# 	@printf 'SpertaClient:%s\n' "$$(stat -c%s bin/main/client/SpertaClient.class)" > extras/attestation.txt
-
 server: compile
 	$(JAVA) -cp $(BIN_DIR) $(SERVER_CLASS) $(SERVER_ARGS)
 
@@ -53,6 +55,24 @@ client_no_port: compile
 
 
 re: clean compile
+
+createServerJAR: compile
+	@mkdir -p $(DIST_DIR)
+	jar --create --file $(DIST_DIR)/SpertaServer.jar --main-class main.server.SpertaServer -C $(BIN_DIR) .
+
+createClientJar: compile
+	@mkdir -p $(DIST_DIR)
+	jar --create --file $(DIST_DIR)/SpertaClient.jar --main-class main.client.SpertaClient -C $(BIN_DIR) .
+
+createJARs: createServerJAR createClientJar
+
+
+serverJAR: createServerJAR
+	java -jar $(DIST_DIR)/SpertaServer.jar 22345
+
+clientJAR: createClientJar
+	@echo "Uso: java -jar $(DIST_DIR)/SpertaClient.jar 127.0.0.1:22345 <user-id> <password>"
+
 
 clean:
 	@rm -rf $(BIN_DIR)

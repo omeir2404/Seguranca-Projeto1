@@ -1,85 +1,277 @@
-# Seguranca-Projeto1
+# Sperta - Projeto 1 (Fase 1)
 
----
+### **Grupo 4**
 
-## Username rules:
- - can't contain spaces;
- - can't contain special characters;
- - can't be empty;
+| Aluno | Numero |
+|---|---:|
+| **Isa David** | `61871` |
+| **Omeir Haroon** | `61810` |
+| **Diogo Roque** | `61857` |
 
-## Format of files:
+Projeto da disciplina de Segurança e Confiabilidade (2025/2026).
 
-- ### Houses.txt: 
-  - `house_id; {Section_id[Device_list]; ...}`
-- ### User.txt: 
-  - `user_id:password` for each line 
-- ### Perms.txt: 
-  - `house_id [user_id:section_id,...; user_id:section_id,...]` for each house 1 line with all the permissions for each section
+Este trabalho implementa um sistema de casas inteligentes em arquitetura cliente-servidor TCP:
+- `SpertaServer`: gere autenticacao, permissoes, estado e historico dos dispositivos.
+- `SpertaClient`: autentica no servidor, envia comandos e recebe dados/ficheiros.
 
-## Duvidas
+O objetivo desta fase é focar funcionalidades e persistência.
 
-- se o mesmo utilizador tentar entrar em dois clientes diferentes, ao mesmo tempo, o mesmo utilizador pode ser
-  bloqueado? ou desconectar o primeiro?
+## Arquitetura
 
+- Linguagem: Java
+- Transporte: TCP sockets
+- Protocolo aplicacional: objetos Java para comandos/respostas + stream binária para transferência de ficheiros (`RT` e `RH`)
+- Multi-cliente: servidor aceita clientes em simultaneo (1 thread por cliente)
 
+## Execução
 
+### Sintaxe esperada
 
-# 1.Persistence 
-This visualization shows how to organize your `server_data` root folder. Using a nested structure for devices makes searching for specific logs much faster.
+- Servidor: `SpertaServer [port]`
+- Cliente: `SpertaClient <serverAddress> <user-id> <password>`
 
-```text
+`serverAddress` aceita formato `<ip-ou-hostname>[:porto]`.
+Se o porto nao for indicado, cliente e servidor usam por omissao `22345`.
 
-│
-├── server_data/                 # Persistence for the Server 
-│   ├── auth/
-│   │   ├── users.txt            # <user-id>:<password> 
-│   │   └── attestation.txt      # SpertaClient:<size> 
-│   ├── metadata/
-│   │   ├── homes_registry.txt   # <home>:<owner>:<permissions> 
-│   │   └── section_counters.txt # <home>:<section>:<next_id> 
-│   ├── states/
-│   │   └── last_commands.txt    # <home>:<device>:<value> 
-│   └── homes/                   # Directory for device logs 
-│       └── Casa1/               # Folder per house 
-│           ├── Electros/        # Section folders 
-│           ├── Garden/
-│           ├── Luzes/           # Contains L1.csv, L2.csv 
-│           ├── Multimedia/      # Contains M1.csv, M2.csv 
-│           ├── Portas/
-│           └── Stores/
-│
-└── client_data/                 # Local storage for the Client 
-    └── <user-id>/               # Separate folders per user (optional but recommended)
-        ├── status_Casa1.txt     # Result from RT Casa1 
-        └── history_M1_Casa1.csv # Result from RH Casa1 M1 
+### Compilar e correr com Makefile
 
+No projeto:
+
+```bash
+make compile
+make server
+make client
 ```
 
-### 2. File Examples & Formats
+Também existem alvos auxiliares:
 
+- `make client2`
+- `make wrongclient`
+- `make server_no_port`
+- `make client_no_port`
+- `make createServerJAR`
+- `make createClientJar`
+- `make createJARs`
+- `make serverJAR`
+- `make clientJAR`
+- `make clean`
+- `make cleanFULL`
 
-#### **B. Permissions & Metadata (New Recommended Structure)**
-To handle the `ADD` command effectively, you need a way to track who can do what.
-* **`homes_registry.txt`**: 
-    > `Format -> Home:Owner:User1=Perms;User2=Perms`
-    > `Casa1:iberia:alan=M,L` 
-    > `Casa2:iberia:alan=all;nuno=G` 
+Nota: o `Makefile` usa comandos Unix (`mkdir -p`, `stat -c%s`, `rm -rf`).
+No Windows, usar Git Bash, WSL, MSYS2 ou adaptar os comandos para PowerShell.
 
-* **`section_counters.txt`**: Required to know the next ID when a user runs `RD <hm> <s>`.
-    > `Casa1:M:3` (Next Multimedia device in Casa1 will be M3)
-    > `Casa1:L:2`
+### JARs (via Makefile)
 
-#### **C. History and State**
-* **`last_commands.txt`**: Used for the `RT <hm>` command to quickly show current status without parsing every CSV.
-    > `Casa1:M1:45` 
-    > `Casa1:L1:30` 
+Os JARs são gerados na pasta `dist/`:
 
-* **`device_logs (CSV)`**: Specifically for the `RH <hm> <d>` command.
-    > `Timestamp,Operation,Value` 
-    > `2026-03-20 14:00:01,ON,1`
-    > `2026-03-20 14:30:00,TIMER,45`
+- `dist/SpertaServer.jar`
+- `dist/SpertaClient.jar`
 
+Gerar JARs:
 
-### Implementation Tip for Java
- `Files.createDirectories()` when a user creates a new house or registers a device in a new section. 
+```bash
+make createJARs
+```
 
+Ou gerar separadamente:
+
+```bash
+make createServerJAR
+make createClientJar
+```
+
+Executar servidor pelo JAR:
+
+```bash
+make serverJAR
+```
+
+Executar cliente pelo JAR (substituir pelos teus valores):
+
+```bash
+java -jar dist/SpertaClient.jar 127.0.0.1:22345 Nexus ehBueFixe
+```
+
+### Compilação manual (alternativa)
+
+```bash
+javac -d bin src/main/server/*.java src/main/client/*.java
+```
+
+Servidor:
+
+```bash
+java -cp bin main.server.SpertaServer 22345
+```
+
+Cliente:
+
+```bash
+java -cp bin main.client.SpertaClient 127.0.0.1:22345 Nexus ehBueFixe
+```
+
+## Fluxo de autenticação e atestação
+
+1. O cliente envia atestação: `ATTEST SpertaClient:<tamanho-do-class>`.
+2. O servidor compara com `server_data/auth/attestation.txt`.
+3. Se falhar: cliente imprime `ATTESTATION FAILED` e termina.
+4. Se passar: cliente imprime `ATTESTATION OK`.
+5. Depois acontece autenticacao por `user-id` e `password`:
+   - novo utilizador: `OK-NEW-USER` (registado no servidor);
+   - utilizador existente com password correta: `OK-USER`;
+   - password errada: `WRONG-PWD` (há nova tentativa);
+   - se o mesmo user ja estiver ligado noutra sessão: `USER-ALREADY-CONNECTED`.
+
+## Comandos suportados
+
+Comandos do enunciado implementados:
+
+- `CREATE <hm>`
+- `ADD <user1> <hm> <s>`
+- `RD <hm> <s>`
+- `EC <hm> <d> <int>`
+- `RT <hm>`
+- `RH <hm> <d>`
+
+Comando extra implementado no projeto:
+
+- `LS` ou `LS <hm>`
+
+Cliente tambem aceita:
+
+- `EXIT` / `QUIT` para terminar.
+
+## Respostas por comando (comportamento atual)
+
+### `CREATE <hm>`
+
+- `OK`: casa criada, utilizador passa a owner.
+- `NOK`: casa já existe ou erro de persistência.
+
+### `ADD <user1> <hm> <s>`
+
+- `OK`
+- `NOHM`: casa inexistente.
+- `NOUSER`: utilizador alvo não existe.
+- `NOPERM`: quem executa não é owner da casa.
+- `NOK`: secção inválida/inexistente na casa no momento do pedido.
+
+### `RD <hm> <s>`
+
+- `OK`
+- `NOHM`
+- `NOPERM`
+- `NOK`: secção inválida.
+
+Ao registar dispositivo, o servidor cria IDs automaticamente por secção (`M1`, `M2`, `L1`, ...).
+
+### `EC <hm> <d> <int>`
+
+- `OK`
+- `NOK`: valor inválido (não inteiro ou fora de `0..600`).
+- `NOHM`
+- `NOD`: dispositivo não existe.
+- `NOPERM`
+
+### `RT <hm>`
+
+- `OK` + envio de ficheiro texto com estado atual dos dispositivos acessíveis.
+- `NOHM`
+- `NOPERM`
+- `NODATA`: sem dispositivos acessíveis ou sem dados.
+
+No cliente, o ficheiro é guardado em:
+
+- `client_data/<user-id>/status_<hm>.txt`
+
+### `RH <hm> <d>`
+
+- `OK` + envio do ficheiro CSV de histórico do dispositivo.
+- `NOHM`
+- `NOD`
+- `NOPERM`
+- `NODATA`: sem log para o dispositivo.
+
+No cliente, o ficheiro e guardado em:
+
+- `client_data/<user-id>/history_<d>_<hm>.csv`
+
+### `LS` e `LS <hm>` (extra)
+
+- `LS`: lista casas onde o utilizador tem acesso.
+- `LS <hm>`: lista dispositivos acessíveis dessa casa e o valor atual.
+
+Possíveis respostas: `NOHM`, `NOPERM`, `NODATA`.
+
+## Persistência
+
+O servidor cria/usa a seguinte estrutura:
+
+```text
+server_data/
+  auth/
+    users.txt
+    attestation.txt
+  metadata/
+    homes_registry.txt
+    permissions.txt
+    house_metadata.txt
+    section_counters.txt
+    device_sections.txt
+    houses.log
+  states/
+    last_commands.txt
+  homes/
+    <house>/
+      <section>/
+        <device>.csv
+```
+
+Nota: as secções default (`M`, `G`, `L`, `P`, `B`, `E`) ficam inicializadas logicamente por casa (via `section_counters.txt`), mas as pastas/ficheiros em `server_data/homes/<house>/<section>/` só são criados quando existe pelo menos um dispositivo registado nessa secção.
+
+E o cliente guarda:
+
+```text
+client_data/
+  <user-id>/
+    status_<hm>.txt
+    history_<d>_<hm>.csv
+```
+
+### Formatos relevantes
+
+- `users.txt`: `user:password`
+- `homes_registry.txt`: `House:Owner`
+- `permissions.txt`: `House:User:Section`
+- `section_counters.txt`: `House:Section=NextCounter,...`
+- `last_commands.txt`: `Home:Device:Value`
+- logs de dispositivos (`.csv`):
+  - header: `time; command`
+  - linhas de eventos, ex.: `2026-03-26T18:31:10;EC Casa1 M1 45`
+
+## Estrutura de código
+
+- `src/main/server/SpertaServer.java`: servidor TCP, atestação, autenticação, gestão de clientes.
+- `src/main/server/ServerCommandHandler.java`: lógica de comandos (`CREATE`, `ADD`, `RD`, `EC`, `RT`, `RH`, `LS`).
+- `src/main/server/ServerFileManager.java`: leitura/escrita e preparação da persistência.
+- `src/main/server/ServerNetwork.java`: envio/receção de objetos e ficheiros no servidor.
+- `src/main/client/SpertaClient.java`: CLI do cliente, autenticação, loop de comandos.
+- `src/main/client/ClientNetwork.java`: comunicação de rede e receção de ficheiros no cliente.
+
+## Limitações conhecidas
+
+- Validação de nomes (`user`, `house`, etc.) e básica; não há filtros fortes de caracteres.
+
+## Exemplo rápido
+
+1. Terminal 1: iniciar servidor.
+2. Terminal 2: iniciar cliente (`user` novo ou existente).
+3. Comandos típicos:
+
+```text
+CREATE Casa1
+RD Casa1 Multimedia
+EC Casa1 M1 45
+RT Casa1
+RH Casa1 M1
+```

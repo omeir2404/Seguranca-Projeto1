@@ -1,3 +1,10 @@
+// ##############################################################
+//           Autores:                Numero Aluno:              # 
+//        - Omeir Haroon               61810                    # 
+//        - Isa David                  61871                    # 
+//        - Diogo Roque                61857                    # 
+// ##############################################################
+
 package main.server;
 
 import java.io.*;
@@ -24,6 +31,7 @@ public class ServerCommandHandler {
     private static String LOG_DIR = "server_data/homes";
     private static final String LOGS_HEADER = "time; command";
     private static final DateTimeFormatter TS_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+    private static final Set<String> ALLOWED_SECTIONS = Set.of("M", "G", "L", "P", "B", "E");
     private ServerNetwork serverNetwork;
 
     public ServerCommandHandler(Map<String, String> users, Map<String, String> houses, Map<String, Map<String, String>> permissions, Map<String, Map<String, Integer>> deviceState, ServerNetwork serverNetwork) {
@@ -159,7 +167,6 @@ public class ServerCommandHandler {
 
 
     private void updateDeviceLogs(String command, String house, String device){
-        // the logs should be one per device, all in csv and with a header (time; command (turn on, turn on with timer, turn off))
         try {
             Path logPath = getDeviceLogPath(house, device);
             ensureParentDir(logPath.toString());
@@ -334,8 +341,8 @@ public class ServerCommandHandler {
                 continue;
             }
 
-            String section = pair[0].trim().toUpperCase();
-            if (section.isEmpty()) {
+            String section = normalizeSectionName(pair[0]);
+            if (section == null || section.equalsIgnoreCase("all")) {
                 continue;
             }
 
@@ -444,13 +451,13 @@ public class ServerCommandHandler {
         Set<String> seen = new HashSet<>();
         String[] parts = trimmed.split(",");
         for (String part : parts) {
-            String token = part.trim();
-            if (token.isEmpty()) {
+            String token = normalizeSectionName(part);
+            if (token == null || token.equalsIgnoreCase("all")) {
                 continue;
             }
             String key = token.toUpperCase();
             if (seen.add(key)) {
-                sections.add(token);
+                sections.add(key);
             }
         }
 
@@ -510,7 +517,21 @@ public class ServerCommandHandler {
         if (trimmed.isEmpty()) {
             return null;
         }
-        return trimmed;
+
+        if (trimmed.equalsIgnoreCase("all")) {
+            return "all";
+        }
+
+        if (trimmed.length() != 1) {
+            return null;
+        }
+
+        String upper = trimmed.toUpperCase(Locale.ROOT);
+        if (ALLOWED_SECTIONS.contains(upper)) {
+            return upper;
+        }
+
+        return null;
     }
 
     private Set<String> getExistingSections(String house) {
@@ -552,7 +573,6 @@ public class ServerCommandHandler {
 
 
     //Método CREATE
-    // TODO maybe verify for malicious input in the house name
     private String createHouse(String user, String house) {
         if (houses.containsKey(house)) {
             return "NOK";
@@ -624,11 +644,9 @@ public class ServerCommandHandler {
         }
 
         String sectionName = normalizeSectionName(section);
-        if (sectionName == null) {
+        if (sectionName == null || sectionName.equalsIgnoreCase("all")) {
             return "NOK";
         }
-
-        String sectionLetter = String.valueOf(Character.toUpperCase(sectionName.charAt(0)));
 
         Map<String, Integer> devices = deviceState.get(house);
         if (devices == null) {
@@ -636,7 +654,7 @@ public class ServerCommandHandler {
             deviceState.put(house, devices);
         }
 
-        String deviceName = allocateNextDeviceName(house, sectionLetter);
+        String deviceName = allocateNextDeviceName(house, sectionName);
         if (deviceName == null) {
             return "NOK";
         }

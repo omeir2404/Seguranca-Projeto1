@@ -136,6 +136,10 @@
 
 ## Perguntar à stora
 - [x] seccoes novas sao criadas com `RD` (ou nao deixamos que aconteca ou atualizamos os logs para os incluir)
-    - [ ] EU (NEXUS) acho que podemos deixar criar, pois cada casa é diferent e pode ser personalizado
-- [ ] `RT` devia enviar `NODATA` se nao houve mudanca -> aberto a interpretacao??
-- [ ] Se podemos entregar com MakeFile em vez de um script para compilar.
+    - [x] nao podemos criar seccoes nunca, SO as seccoes que ja existem
+- [x] `RT` devia enviar `NODATA` se nao houve mudanca -> aberto a interpretacao??
+    - [x] deve retornar outra vez tudo
+- [x] Se podemos entregar com MakeFile em vez de um script para compilar e guardar os dados do Attestation.
+    - [ ] tudo bem meter no readme
+- [x] Temos as seccoes default ja criadas mas nao fazemos o ficheiro a nao ser que haja dispositivos
+  - [ ] tudo bem por no readme

@@ -1,3 +1,10 @@
+// ##############################################################
+//           Autores:                Numero Aluno:              # 
+//        - Omeir Haroon               61810                    # 
+//        - Isa David                  61871                    # 
+//        - Diogo Roque                61857                    # 
+// ##############################################################
+
 package main.client;
 
 import java.io.ByteArrayOutputStream;
@@ -37,10 +44,6 @@ public class ClientNetwork {
         }
     }
 
-    /**
-     * Receives a file sent by the server. The server first sends a long indicating the file size, followed by the file bytes.
-     * @returns String of the file contents or null if a file was not received properly
-     */
     public String receiveFile() {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try(baos) {

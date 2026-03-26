@@ -11,7 +11,7 @@
 Projeto da disciplina de Segurança e Confiabilidade (2025/2026).
 
 Este trabalho implementa um sistema de casas inteligentes em arquitetura cliente-servidor TCP:
-- `SpertaServer`: gere autenticacao, permissoes, estado e historico dos dispositivos.
+- `SpertaServer`: gere autenticação, permissões, estado e histórico dos dispositivos.
 - `SpertaClient`: autentica no servidor, envia comandos e recebe dados/ficheiros.
 
 O objetivo desta fase é focar funcionalidades e persistência.
@@ -21,7 +21,7 @@ O objetivo desta fase é focar funcionalidades e persistência.
 - Linguagem: Java
 - Transporte: TCP sockets
 - Protocolo aplicacional: objetos Java para comandos/respostas + stream binária para transferência de ficheiros (`RT` e `RH`)
-- Multi-cliente: servidor aceita clientes em simultaneo (1 thread por cliente)
+- Multi-cliente: servidor aceita clientes em simultâneo (1 thread por cliente)
 
 ## Execução
 
@@ -31,7 +31,7 @@ O objetivo desta fase é focar funcionalidades e persistência.
 - Cliente: `SpertaClient <serverAddress> <user-id> <password>`
 
 `serverAddress` aceita formato `<ip-ou-hostname>[:porto]`.
-Se o porto nao for indicado, cliente e servidor usam por omissao `22345`.
+Se o porto não for indicado, cliente e servidor usam por omissão `22345`.
 
 ### Compilar e correr com Makefile
 
